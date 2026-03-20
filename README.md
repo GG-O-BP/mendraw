@@ -13,23 +13,14 @@ gleam add mendraw@1
 
 ## 사용법
 
-### 1. `.mpk` 파일 배치
+### 1. 위젯 등록
 
-**방법 A: `gleam.toml`로 자동 다운로드 (추천)**
+`gleam.toml`로 자동 다운로드:
 
 ```toml
 [tools.mendraw.widgets.Charts]
 version = "3.0.0"
 # s3_id = "com/..."   ← 있으면 인증 없이 직접 다운로드
-```
-
-**방법 B: `.mpk`를 `widgets/`에 수동 배치**
-
-```
-widgets/
-  Charts.mpk
-  Switch.mpk
-  CameraWidget.mpk
 ```
 
 ### 2. 바인딩 생성

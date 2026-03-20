@@ -530,26 +530,6 @@ export function version_s3_id(v) {
   return v.s3ObjectId ? new Some(v.s3ObjectId) : new None();
 }
 
-// ── S3 URL에서 다운로드 ──
-
-export function download_from_url(url) {
-  const fileName = url.split("/").pop();
-  const dest = `widgets/${fileName}`;
-
-  if (existsSync(dest)) {
-    console.log(`        → ${fileName} 이미 존재 (스킵)`);
-    return new Some(fileName);
-  }
-
-  try {
-    execSync(`curl -s -L -o "${dest}" "${url}"`, { shell: true });
-    return new Some(fileName);
-  } catch {
-    console.log(`        ✗ 다운로드 실패`);
-    return new None();
-  }
-}
-
 // ── 위젯 JSON 변환 ──
 
 export function widgets_to_json(widgets) {

@@ -67,9 +67,9 @@ mendraw는 `gleam_stdlib`, `gleam_javascript`, `redraw`, `redraw_dom`을 함께 
 
 ## 빠른 시작
 
-### 1단계: `.mpk` 파일 배치
+### 1단계: 위젯 등록
 
-**방법 A: `gleam.toml`로 자동 다운로드 (추천)**
+**`gleam.toml`로 자동 다운로드**
 
 ```toml
 [tools.mendraw.widgets.Charts]
@@ -79,22 +79,6 @@ version = "3.0.0"
 
 `gleam run -m mendraw/install` 실행 시 `build/widgets/`에 캐시하고 바인딩을 자동 생성한다.
 Marketplace TUI(`gleam run -m mendraw/marketplace`)에서 다운로드하면 gleam.toml에 자동 추가된다.
-
-**방법 B: `.mpk`를 `widgets/`에 수동 배치**
-
-프로젝트 루트에 `widgets/` 디렉토리를 만들고, Mendix 위젯 `.mpk` 파일을 넣는다.
-
-```
-my-project/
-├── gleam.toml
-├── src/
-└── widgets/          ← 여기에 .mpk 파일 배치
-    ├── Switch.mpk
-    ├── Charts.mpk
-    └── CameraWidget.mpk
-```
-
-> 이름 충돌 시 gleam.toml(build/widgets/) 우선, widgets/*.mpk 폴백.
 
 ### 2단계: 바인딩 생성
 
@@ -414,7 +398,7 @@ let js_value = mendix.from_option(gleam_option)
 
 ### Pluggable 위젯 바인딩 예시
 
-`widgets/Switch.mpk`에서 생성되는 `src/widgets/switch.gleam`:
+Switch 위젯에서 생성되는 `src/widgets/switch.gleam`:
 
 ```gleam
 // @generated mendraw/install — 직접 수정 금지
@@ -454,7 +438,7 @@ fn optional_attr(key: String, value: option.Option(a)) -> List(attribute.Attribu
 
 ### Classic 위젯 바인딩 예시
 
-`widgets/CameraWidget.mpk`에서 생성되는 `src/widgets/camera_widget.gleam`:
+CameraWidget 위젯에서 생성되는 `src/widgets/camera_widget.gleam`:
 
 ```gleam
 // @generated mendraw/install — 직접 수정 금지
@@ -594,7 +578,7 @@ Classic (Dojo) 위젯을 React 내부에서 렌더링.
 | 함수 | 시그니처 | 설명 |
 |------|----------|------|
 | `file_exists` | `(String) -> Bool` | 파일 존재 여부 |
-| `generate_widget_bindings` | `() -> Nil` | widgets/ + build/widgets/ 캐시에서 바인딩 생성 |
+| `generate_widget_bindings` | `() -> Nil` | build/widgets/ 캐시에서 바인딩 생성 |
 | `resolve_toml_widgets` | `() -> Nil` | gleam.toml [tools.mendraw.widgets.*] 다운로드/캐시 |
 | `write_widget_toml` | `(String, String, Option(Int), Option(String)) -> Nil` | gleam.toml에 위젯 항목 쓰기 |
 | `download_to_cache` | `(String, String, String, Option(Int)) -> Bool` | URL에서 build/widgets/{name}/에 다운로드+추출 |
@@ -645,7 +629,7 @@ pub fn main() {
 
 ### `gleam run -m mendraw/install` 실행 시 아무것도 생성되지 않는다
 
-- `widgets/` 디렉토리가 프로젝트 루트에 있는지 확인
+- `gleam.toml`에 `[tools.mendraw.widgets.*]` 섹션이 있는지 확인
 - `.mpk` 파일이 유효한 ZIP 형식인지 확인
 - 콘솔 출력을 확인하여 파싱 오류가 없는지 점검
 

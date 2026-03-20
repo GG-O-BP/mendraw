@@ -26,6 +26,3 @@ Desktop.ini
 .idea/
 .vscode/
 .claude/
-
-# 위젯 캐시 (빌드 시 생성)
-widgets/*.mpk

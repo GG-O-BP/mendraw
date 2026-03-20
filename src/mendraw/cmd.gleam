@@ -1,4 +1,4 @@
-// widgets/ 디렉토리의 .mpk + build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다
+// build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다
 
 import gleam/option.{type Option}
 
@@ -6,7 +6,7 @@ import gleam/option.{type Option}
 @external(javascript, "./cmd_ffi.mjs", "file_exists")
 pub fn file_exists(path: String) -> Bool
 
-/// widgets/ 디렉토리의 .mpk + build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다.
+/// build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다.
 /// mendraw 빌드 경로에 widget_ffi.mjs와 위젯 에셋을 생성한다.
 @external(javascript, "./cmd_ffi.mjs", "generate_widget_bindings")
 pub fn generate_widget_bindings() -> Nil

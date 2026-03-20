@@ -8,7 +8,7 @@ Mendix widget `.mpk` 파일에서 Gleam/redraw 바인딩을 자동 생성하는 
 gleam build          # 컴파일
 gleam test           # 테스트 실행
 gleam format src test  # 포맷 체크 (CI에서도 --check로 검증)
-gleam run -m mendraw/install  # TOML 위젯 다운로드 + widgets/*.mpk → src/widgets/*.gleam 바인딩 생성
+gleam run -m mendraw/install  # TOML 위젯 다운로드 + build/widgets/ 캐시 → src/widgets/*.gleam 바인딩 생성
 gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로드 TUI
 ```
 

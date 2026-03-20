@@ -1,5 +1,5 @@
 //// Classic (Dojo 기반) Mendix 위젯을 React 내부에서 사용한다.
-//// widgets/ 디렉토리의 Classic .mpk 위젯을 DOM 컨테이너에 임페러티브하게 마운트한다.
+//// build/widgets/ 캐시의 Classic .mpk 위젯을 DOM 컨테이너에 임페러티브하게 마운트한다.
 //// gleam run -m mendraw/install 실행 시 바인딩이 자동 생성된다.
 ////
 //// ```gleam
