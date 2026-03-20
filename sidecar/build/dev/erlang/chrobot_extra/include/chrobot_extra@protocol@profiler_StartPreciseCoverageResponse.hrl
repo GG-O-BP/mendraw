@@ -1,0 +1,1 @@
+-record(start_precise_coverage_response, {timestamp :: float()}).

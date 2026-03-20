@@ -1,0 +1,1 @@
+-record(header_entry, {name :: binary(), value :: binary()}).

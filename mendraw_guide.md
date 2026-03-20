@@ -179,8 +179,9 @@ gleam run -m mendraw/marketplace
 다운로드한 위젯은 `build/widgets/`에 캐시되고 `gleam.toml`의 `[tools.mendraw.widgets.*]`에 자동 추가된다.
 다운로드가 1개 이상 완료되면 자동으로 `cmd.generate_widget_bindings()`가 실행되어 바인딩이 생성된다.
 
-> **참고**: 첫 다운로드 시 Playwright 브라우저를 통한 Mendix 로그인이 필요할 수 있다.
+> **참고**: 첫 다운로드 시 chrobot_extra 사이드카를 통한 Mendix 로그인이 필요할 수 있다.
 > 로그인 세션은 `.marketplace-cache/session.json`에 캐시된다.
+> 사이드카가 처음 실행될 때 자동으로 설정된다 (Erlang/OTP가 필요).
 
 ---
 
@@ -593,7 +594,7 @@ Mendix Marketplace 위젯 검색·다운로드 TUI. `gleam run -m mendraw/market
 |------|------|
 | 위젯 검색 | 이름/퍼블리셔로 실시간 필터링 |
 | 백그라운드 로딩 | 전체 위젯 목록을 백그라운드에서 점진적으로 로드 |
-| 버전 선택 | Content API + Playwright(XAS)로 버전별 다운로드 정보 조회 |
+| 버전 선택 | Content API + chrobot_extra 사이드카(XAS)로 버전별 다운로드 정보 조회 |
 | 자동 TOML 기록 | 다운로드 시 gleam.toml에 위젯 항목 자동 추가 |
 | 캐시 다운로드 | build/widgets/에 캐시 (소스 컨트롤에 .mpk 불필요) |
 | 자동 바인딩 | 다운로드 완료 후 `generate_widget_bindings()` 자동 호출 |
@@ -601,7 +602,7 @@ Mendix Marketplace 위젯 검색·다운로드 TUI. `gleam run -m mendraw/market
 #### 의존성
 
 - `etch` — 터미널 raw mode, 커서 제어, ANSI 스타일링
-- `playwright` — Mendix 로그인 세션 관리, 버전 다운로드 정보 추출 (런타임 의존)
+- `chrobot_extra` — Mendix 로그인 세션 관리, 버전 다운로드 정보 추출 (HTTP 사이드카, Erlang 타겟)
 - `curl` — Content API 호출 (시스템 명령)
 
 ---

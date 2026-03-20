@@ -1,8 +1,10 @@
 // 위젯 .mpk 파일 파싱 + 바인딩 생성 + TOML 위젯 관리 FFI 어댑터
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync, readSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, readSync } from "node:fs";
+import { resolve } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { Some, None } from "../../gleam_stdlib/gleam/option.mjs";
+import { callSidecar } from "./marketplace_ffi.mjs";
 
 export function file_exists(path) {
   return existsSync(path);
@@ -174,69 +176,20 @@ function curlJsonSimple(url, pat) {
   } catch { return null; }
 }
 
-function escPw(s) {
-  return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-function runPwScript(script, timeout) {
-  if (!existsSync(TOML_MX_DIR)) mkdirSync(TOML_MX_DIR, { recursive: true });
-  const tmp = `${TOML_MX_DIR}/pw_${Date.now()}.mjs`;
-  writeFileSync(tmp, script);
-  try {
-    return execSync(`node "${tmp}"`, {
-      encoding: "utf-8", timeout: timeout || 300000,
-      shell: true, stdio: ["pipe", "pipe", "inherit"],
-    }).trim();
-  } finally {
-    try { unlinkSync(tmp); } catch {}
-  }
-}
-
 function ensureSessionForResolve() {
-  if (existsSync(TOML_SESSION_PATH)) {
-    try {
-      const out = runPwScript(
-`import { chromium } from 'playwright';
-const b = await chromium.launch({ headless: true });
-const c = await b.newContext({ storageState: '${escPw(TOML_SESSION_PATH)}' });
-const p = await c.newPage();
-await p.goto('https://marketplace.mendix.com/', { waitUntil: 'domcontentloaded' });
-await p.waitForTimeout(3000);
-const valid = !p.url().includes('login.mendix');
-await b.close();
-console.log(JSON.stringify({ valid }));
-`, 30000);
-      if (JSON.parse(out).valid) return true;
-    } catch {}
-    console.log("  저장된 세션이 만료되었습니다.");
-  }
-
-  console.log("  브라우저에서 Mendix 로그인을 완료하세요...\n");
+  if (!existsSync(TOML_MX_DIR)) mkdirSync(TOML_MX_DIR, { recursive: true });
+  const sessionPath = resolve(TOML_SESSION_PATH);
   try {
-    const tmp = `${TOML_MX_DIR}/pw_${Date.now()}.mjs`;
-    writeFileSync(tmp,
-`import { chromium } from 'playwright';
-const b = await chromium.launch({ headless: false });
-const c = await b.newContext();
-const p = await c.newPage();
-await p.goto('https://login.mendix.com/');
-await p.waitForURL(u => !u.toString().includes('login.mendix'), { timeout: 300000 });
-await c.storageState({ path: '${escPw(TOML_SESSION_PATH)}' });
-await b.close();
-`);
-    try {
-      execSync(`node "${tmp}"`, { timeout: 300000, shell: true, stdio: "inherit" });
-    } finally {
-      try { unlinkSync(tmp); } catch {}
-    }
-    if (existsSync(TOML_SESSION_PATH)) {
-      console.log("  로그인 성공!\n");
-      return true;
-    }
-    console.log("  세션 파일이 생성되지 않았습니다.\n");
+    const result = callSidecar(
+      "/session/ensure",
+      { session_path: sessionPath },
+      310000,
+    );
+    if (result && result.ok === true) return true;
+    if (result && result.error) console.log(`  세션 실패: ${result.error}`);
     return false;
   } catch (e) {
-    console.log(`  로그인 실패: ${e.message}\n`);
+    console.log(`  세션 확인 실패: ${e.message}`);
     return false;
   }
 }
@@ -250,60 +203,16 @@ function searchContentByName(name, pat) {
 }
 
 function getS3IdForVersion(contentId, targetVersion) {
+  const sessionPath = resolve(TOML_SESSION_PATH);
   try {
-    const out = runPwScript(
-`import { chromium } from 'playwright';
-const b = await chromium.launch({ headless: true });
-const c = await b.newContext({ storageState: '${escPw(TOML_SESSION_PATH)}' });
-const p = await c.newPage();
-const responsePromises = [];
-const xasHandler = (response) => {
-  if (!response.url().includes('/xas/')) return;
-  responsePromises.push(response.json().catch(() => null));
-};
-p.on('response', xasHandler);
-try {
-  await p.goto('https://marketplace.mendix.com/link/component/${contentId}', {
-    waitUntil: 'networkidle', timeout: 30000,
-  });
-  const tabSelectors = [
-    'a.mx-name-tabPage10',
-    'a[role="tab"]:has-text("Releases")',
-    'text="Releases"',
-  ];
-  for (const sel of tabSelectors) {
-    try {
-      const tab = p.locator(sel).first();
-      if (await tab.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await tab.click();
-        await p.waitForLoadState('networkidle');
-        break;
-      }
-    } catch {}
-  }
-  await p.waitForTimeout(3000);
-} catch {}
-p.removeListener('response', xasHandler);
-const responses = await Promise.all(responsePromises);
-let result = null;
-for (const json of responses) {
-  if (!json?.objects) continue;
-  for (const obj of json.objects) {
-    if (obj.objectType !== 'AppStore.Version') continue;
-    const attrs = obj.attributes;
-    if (!attrs?.S3ObjectId?.value) continue;
-    const vn = attrs.DisplayVersionNumber?.value;
-    if (vn === '${targetVersion}') { result = attrs.S3ObjectId.value; break; }
-  }
-  if (result) break;
-}
-await b.close();
-console.log(JSON.stringify({ s3_id: result }));
-`, 180000);
-    const data = JSON.parse(out);
-    return data.s3_id || null;
+    const result = callSidecar(
+      "/versions/single",
+      { session_path: sessionPath, content_id: contentId, target_version: targetVersion },
+      180000,
+    );
+    return result?.s3_id || null;
   } catch (e) {
-    console.log(`  Playwright 오류: ${e.message}`);
+    console.log(`  버전 조회 실패: ${e.message}`);
     return null;
   }
 }
@@ -486,7 +395,7 @@ export function resolve_toml_widgets() {
       writeTomlKey(`tools.mendraw.widgets.${name}`, "id", contentId);
     }
 
-    // Playwright 세션 + s3_id 확보
+    // 사이드카 세션 + s3_id 확보
     if (!ensureSessionForResolve()) {
       console.log("로그인 실패");
       continue;

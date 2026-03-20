@@ -1,0 +1,1 @@
+-record(get_browser_contexts_response, {browser_context_ids :: list(binary())}).

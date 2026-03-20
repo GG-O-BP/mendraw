@@ -1,0 +1,1 @@
+-record(storage_entry, {name :: binary(), value :: binary()}).

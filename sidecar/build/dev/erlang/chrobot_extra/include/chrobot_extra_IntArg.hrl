@@ -1,0 +1,1 @@
+-record(int_arg, {value :: integer()}).

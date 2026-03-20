@@ -1,0 +1,1 @@
+-record(get_attributes_response, {attributes :: list(binary())}).

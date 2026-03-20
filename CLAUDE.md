@@ -24,6 +24,18 @@ gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로�
 - `src/mendraw/marketplace/ui.gleam` — Marketplace TUI 스타일링 출력 함수
 - `widget_ffi.mjs`, `classic_ffi.mjs`는 **스텁** — install 실행 시 빌드 경로에 실제 파일 생성
 
+### 사이드카 (브라우저 자동화)
+
+- `sidecar/` — Erlang 타겟 HTTP 서버 (chrobot_extra 기반, 별도 Gleam 프로젝트)
+  - `src/mendraw_sidecar.gleam` — 진입점: CLI 포트 파싱, mist 서버 시작
+  - `src/mendraw_sidecar/router.gleam` — HTTP 라우팅 (path_segments 매칭)
+  - `src/mendraw_sidecar/http_utils.gleam` — JSON 응답, 요청 본문 유틸리티
+  - `src/mendraw_sidecar/session_handler.gleam` — /session/ensure: Mendix 로그인 세션 관리
+  - `src/mendraw_sidecar/version_handler.gleam` — /versions/all, /versions/single: 버전 정보 수집
+  - `src/mendraw_sidecar/xas_parser.gleam` — XAS JSON → AppStore.Version 파싱
+- mendraw(JS 타겟)는 사이드카를 HTTP로 호출 — `marketplace_ffi.mjs`의 `startSidecar`/`callSidecar`/`stopSidecar`
+- 개발 시: `sidecar/` 디렉토리 직접 사용. 배포 시: `mendraw_sidecar` Hex 패키지로 별도 배포
+
 ## 코드 컨벤션
 
 - **Gleam 문법 참고**: `./docs/gleam_language_tour.md` 파일에 전체 언어 투어가 있음. 문법이 불확실할 때 반드시 참조할 것
@@ -50,7 +62,16 @@ gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로�
 - 프레임워크: gleeunit
 - CI: GitHub Actions — Ubuntu, OTP 28, Gleam 1.15.1 (`gleam test` + `gleam format --check`)
 
+## 사이드카 빌드 & 테스트
+
+```bash
+cd sidecar && gleam build          # 사이드카 컴파일
+cd sidecar && gleam run -m mendraw_sidecar -- 9999  # 포트 9999로 서버 시작
+curl http://127.0.0.1:9999/health  # {"status":"ok"} 확인
+```
+
 ## 관련 프로젝트
 
 - **glendix** (`../glendix/`): 이 라이브러리의 원본. mendraw는 glendix의 MPK 바인딩 기능을 분리한 것
 - glendix는 향후 mendraw를 의존성으로 추가하여 MPK 처리를 위임할 예정
+- **chrobot_extra** (`../chrobot/`): 사이드카의 브라우저 자동화 엔진 (Chrome DevTools Protocol)

@@ -1,0 +1,1 @@
+-record(post_data_entry, {bytes :: gleam@option:option(binary())}).

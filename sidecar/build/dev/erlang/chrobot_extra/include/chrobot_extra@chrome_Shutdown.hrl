@@ -1,0 +1,1 @@
+-record(shutdown, {reply_with :: gleam@erlang@process:subject(nil)}).

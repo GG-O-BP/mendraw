@@ -1,0 +1,1 @@
+-record(callee_down, {reason :: gleam@erlang@process:exit_reason()}).

@@ -1,4 +1,4 @@
-// Mendix Marketplace Content API + Playwright 브라우저 다운로드 FFI 어댑터
+// Mendix Marketplace Content API + chrobot_extra 사이드카 FFI 어댑터
 import { execSync, spawn, fork } from "node:child_process";
 import {
   existsSync,
@@ -8,6 +8,7 @@ import {
   mkdirSync,
   unlinkSync,
 } from "node:fs";
+import { resolve } from "node:path";
 import { Some, None } from "../../gleam_stdlib/gleam/option.mjs";
 import { toList } from "../gleam.mjs";
 
@@ -69,6 +70,109 @@ function curlJson(url, pat) {
 const API_BASE = "https://marketplace-api.mendix.com/v1";
 const FETCH_SIZE = 40;
 const MX_DIR = ".marketplace-cache";
+
+// ── 사이드카 관리 ──
+
+let _sidecarProc = null;
+let _sidecarPort = null;
+
+function getSidecarConfig() {
+  // 로컬 개발: sidecar/ 디렉토리 직접 사용
+  if (existsSync("sidecar/gleam.toml")) {
+    return { dir: "sidecar", module: "mendraw_sidecar" };
+  }
+  // 프로덕션: mendraw_sidecar Hex 패키지 기반 runner 자동 생성
+  return ensureSidecarRunnerProject();
+}
+
+function ensureSidecarRunnerProject() {
+  const dir = `${MX_DIR}/sidecar`;
+  const buildFlag = `${dir}/build/dev/erlang`;
+  if (existsSync(buildFlag)) return { dir, module: "mendraw_sidecar_runner" };
+
+  mkdirSync(`${dir}/src`, { recursive: true });
+  writeFileSync(`${dir}/gleam.toml`, [
+    'name = "mendraw_sidecar_runner"',
+    'version = "0.0.1"',
+    'target = "erlang"',
+    '',
+    '[dependencies]',
+    'mendraw_sidecar = ">= 1.0.0 and < 2.0.0"',
+  ].join('\n'));
+  writeFileSync(`${dir}/src/mendraw_sidecar_runner.gleam`, [
+    'import mendraw_sidecar',
+    '',
+    'pub fn main() {',
+    '  mendraw_sidecar.main()',
+    '}',
+  ].join('\n'));
+
+  console.log("  사이드카 초기 설정 중...");
+  execSync("gleam build", { cwd: dir, shell: true, stdio: "inherit" });
+  return { dir, module: "mendraw_sidecar_runner" };
+}
+
+export function startSidecar() {
+  if (_sidecarProc && _sidecarPort) return _sidecarPort;
+
+  const { dir, module: mod } = getSidecarConfig();
+  const port = 10000 + Math.floor(Math.random() * 50000);
+
+  const proc = spawn("gleam", ["run", "-m", mod, "--", String(port)], {
+    cwd: dir, shell: true, stdio: ["ignore", "pipe", "inherit"],
+  });
+
+  // health check 폴링 (최대 30초)
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    try {
+      const result = execSync(
+        `curl -s "http://127.0.0.1:${port}/health"`,
+        { encoding: "utf-8", timeout: 3000, shell: true },
+      );
+      if (JSON.parse(result).status === "ok") {
+        _sidecarProc = proc;
+        _sidecarPort = port;
+        proc.on("exit", () => { _sidecarProc = null; _sidecarPort = null; });
+        return port;
+      }
+    } catch {}
+    // 500ms 대기
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+  }
+
+  try { proc.kill(); } catch {}
+  throw new Error("사이드카 시작 실패 (30초 타임아웃)");
+}
+
+export function callSidecar(path, body, timeout) {
+  const port = startSidecar();
+  try {
+    const result = execSync(
+      `curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:${port}${path}"`,
+      { input: JSON.stringify(body), encoding: "utf-8", timeout: timeout || 300000, shell: true },
+    );
+    return JSON.parse(result.trim());
+  } catch {
+    return null;
+  }
+}
+
+export function stopSidecar() {
+  if (!_sidecarPort) return;
+  try {
+    execSync(
+      `curl -s -X POST "http://127.0.0.1:${_sidecarPort}/shutdown"`,
+      { encoding: "utf-8", timeout: 3000, shell: true },
+    );
+  } catch {}
+  try { _sidecarProc?.kill(); } catch {}
+  _sidecarProc = null;
+  _sidecarPort = null;
+}
+
+// 프로세스 종료 시 사이드카 정리
+process.on("exit", stopSidecar);
 
 // ── 모듈 수준 로더 상태 (IPC로 갱신) ──
 
@@ -235,86 +339,24 @@ export function widget_latest_version(item) {
   return v ? new Some(v) : new None();
 }
 
-// ── Playwright 스크립트 실행 ──
+// ── Mendix 로그인 세션 관리 (사이드카 경유) ──
 
 const SESSION_PATH = `${MX_DIR}/session.json`;
 
-function esc(s) {
-  return s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-function runPw(script, timeout) {
-  const tmp = `${MX_DIR}/pw_${Date.now()}.mjs`;
-  writeFileSync(tmp, script);
-  try {
-    return execSync(`node "${tmp}"`, {
-      encoding: "utf-8",
-      timeout: timeout || 300000,
-      shell: true,
-      stdio: ["pipe", "pipe", "inherit"],
-    }).trim();
-  } finally {
-    try { unlinkSync(tmp); } catch {}
-  }
-}
-
-// ── Mendix 로그인 세션 관리 ──
-
 export function ensure_session() {
-  if (existsSync(SESSION_PATH)) {
-    try {
-      const out = runPw(
-        `
-import { chromium } from 'playwright';
-const b = await chromium.launch({ headless: true });
-const c = await b.newContext({ storageState: '${esc(SESSION_PATH)}' });
-const p = await c.newPage();
-await p.goto('https://marketplace.mendix.com/', { waitUntil: 'domcontentloaded' });
-await p.waitForTimeout(3000);
-const valid = !p.url().includes('login.mendix');
-await b.close();
-console.log(JSON.stringify({ valid }));
-`,
-        30000,
-      );
-      if (JSON.parse(out).valid) return true;
-    } catch {}
-    console.log("  저장된 세션이 만료되었습니다.");
-  }
-
-  console.log("  브라우저에서 Mendix 로그인을 완료하세요...\n");
+  ensure_cache_dir();
+  const sessionPath = resolve(SESSION_PATH);
   try {
-    const tmp = `${MX_DIR}/pw_${Date.now()}.mjs`;
-    writeFileSync(
-      tmp,
-      `
-import { chromium } from 'playwright';
-const b = await chromium.launch({ headless: false });
-const c = await b.newContext();
-const p = await c.newPage();
-await p.goto('https://login.mendix.com/');
-await p.waitForURL(u => !u.toString().includes('login.mendix'), { timeout: 300000 });
-await c.storageState({ path: '${esc(SESSION_PATH)}' });
-await b.close();
-`,
+    const result = callSidecar(
+      "/session/ensure",
+      { session_path: sessionPath },
+      310000,
     );
-    try {
-      execSync(`node "${tmp}"`, {
-        timeout: 300000,
-        shell: true,
-        stdio: "inherit",
-      });
-    } finally {
-      try { unlinkSync(tmp); } catch {}
-    }
-    if (existsSync(SESSION_PATH)) {
-      console.log("  로그인 성공!\n");
-      return true;
-    }
-    console.log("  세션 파일이 생성되지 않았습니다.\n");
+    if (result && result.ok === true) return true;
+    if (result && result.error) console.log(`  세션 실패: ${result.error}`);
     return false;
   } catch (e) {
-    console.log(`  로그인 실패: ${e.message}\n`);
+    console.log(`  세션 확인 실패: ${e.message}`);
     return false;
   }
 }
@@ -331,99 +373,20 @@ export function fetch_versions(contentId, pat) {
   return toList(sorted);
 }
 
-// ── Playwright로 버전별 다운로드 정보 추출 ──
+// ── 버전별 다운로드 정보 추출 (사이드카 경유) ──
 
 export function get_all_version_info(contentIds) {
-  const ids = JSON.stringify(contentIds.toArray());
+  const ids = contentIds.toArray();
+  const sessionPath = resolve(SESSION_PATH);
   try {
-    const out = runPw(
-      `
-import { chromium } from 'playwright';
-
-const ids = ${ids};
-const results = {};
-
-const b = await chromium.launch({ headless: true });
-const c = await b.newContext({ storageState: '${esc(SESSION_PATH)}' });
-const p = await c.newPage();
-
-for (const id of ids) {
-  const responsePromises = [];
-
-  const xasHandler = (response) => {
-    if (!response.url().includes('/xas/')) return;
-    responsePromises.push(response.json().catch(() => null));
-  };
-  p.on('response', xasHandler);
-
-  try {
-    await p.goto('https://marketplace.mendix.com/link/component/' + id, {
-      waitUntil: 'networkidle',
-      timeout: 30000,
-    });
-
-    let tabClicked = false;
-    const tabSelectors = [
-      'a.mx-name-tabPage10',
-      'a[role="tab"]:has-text("Releases")',
-      'text="Releases"',
-    ];
-    for (const sel of tabSelectors) {
-      try {
-        const tab = p.locator(sel).first();
-        if (await tab.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await tab.click();
-          await p.waitForLoadState('networkidle');
-          tabClicked = true;
-          break;
-        }
-      } catch {}
-    }
-
-    await p.waitForTimeout(3000);
-  } catch (e) {
-    process.stderr.write('  [pw] 오류 (id=' + id + '): ' + e.message + '\\n');
-  }
-
-  p.removeListener('response', xasHandler);
-
-  const versions = [];
-  const seen = new Set();
-  const responses = await Promise.all(responsePromises);
-
-  for (const json of responses) {
-    if (!json || !json.objects) continue;
-    for (const obj of json.objects) {
-      if (obj.objectType !== 'AppStore.Version') continue;
-      const attrs = obj.attributes;
-      if (!attrs?.S3ObjectId?.value) continue;
-      const s3Id = attrs.S3ObjectId.value;
-      if (seen.has(s3Id)) continue;
-      seen.add(s3Id);
-      versions.push({
-        s3ObjectId: s3Id,
-        reactReady: !!attrs?.IsReactClientReady?.value,
-        publishDate: attrs.PublishDate?.value || 0,
-        versionNumber: attrs.DisplayVersionNumber?.value || null,
-      });
-    }
-  }
-
-  results[id] = versions;
-
-  if (versions.length === 0) {
-    process.stderr.write('  [pw] 다운로드 가능한 버전 없음 (id=' + id + ')\\n');
-  }
-}
-
-await b.close();
-console.log(JSON.stringify(results));
-`,
+    const result = callSidecar(
+      "/versions/all",
+      { session_path: sessionPath, content_ids: ids },
       180000,
     );
-    return JSON.parse(out);
+    return result || {};
   } catch (e) {
-    console.log(`        Playwright 오류: ${e.message}`);
+    console.log(`  버전 정보 조회 실패: ${e.message}`);
     return {};
   }
 }

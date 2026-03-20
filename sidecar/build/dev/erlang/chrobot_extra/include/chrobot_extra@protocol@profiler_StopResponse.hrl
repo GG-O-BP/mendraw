@@ -1,0 +1,1 @@
+-record(stop_response, {profile :: chrobot_extra@protocol@profiler:profile()}).

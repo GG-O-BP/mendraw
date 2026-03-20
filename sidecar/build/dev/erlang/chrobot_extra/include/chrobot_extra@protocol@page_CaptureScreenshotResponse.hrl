@@ -1,0 +1,1 @@
+-record(capture_screenshot_response, {data :: binary()}).

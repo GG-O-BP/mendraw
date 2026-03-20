@@ -1,0 +1,1 @@
+-record(media_feature, {name :: binary(), value :: binary()}).

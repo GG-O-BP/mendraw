@@ -1,0 +1,1 @@
+-record(c_s_s_computed_style_property, {name :: binary(), value :: binary()}).

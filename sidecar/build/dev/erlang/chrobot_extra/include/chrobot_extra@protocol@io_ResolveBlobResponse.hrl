@@ -1,0 +1,1 @@
+-record(resolve_blob_response, {uuid :: binary()}).

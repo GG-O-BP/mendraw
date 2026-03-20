@@ -1,0 +1,1 @@
+-record(move_to_response, {node_id :: chrobot_extra@protocol@dom:node_id()}).

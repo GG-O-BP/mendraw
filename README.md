@@ -135,6 +135,8 @@ PAT는 Mendix Portal → Settings → Personal Access Tokens에서 발급한다 
 
 다운로드한 위젯은 `build/widgets/`에 캐시되고 `gleam.toml`에 자동 추가된다. 완료 후 자동으로 바인딩이 생성된다.
 
+> **참고**: 첫 실행 시 chrobot_extra 기반 사이드카가 자동 설정된다. Erlang/OTP가 설치되어 있어야 한다 (Gleam 개발 환경에서는 이미 설치되어 있음).
+
 ## 모듈 구조
 
 ### 코어
@@ -176,13 +178,33 @@ Mendix Pluggable Widget API의 타입을 Gleam opaque type으로 래핑한다.
 | `mendraw/marketplace` | Mendix Marketplace 위젯 검색·다운로드 TUI (TTY + 프롬프트 폴백) |
 | `mendraw/marketplace/ui` | Marketplace TUI 스타일링 출력 함수 |
 
+### 사이드카 (`sidecar/`)
+
+Mendix 로그인 및 버전 정보 추출에 필요한 브라우저 자동화를 담당하는 Erlang 타겟 HTTP 서버. mendraw(JS 타겟)와 HTTP로 통신한다.
+
+| 모듈 | 설명 |
+|---|---|
+| `mendraw_sidecar` | 진입점 — CLI 포트, mist HTTP 서버 |
+| `mendraw_sidecar/router` | HTTP 라우팅 (`/health`, `/shutdown`, `/session/ensure`, `/versions/*`) |
+| `mendraw_sidecar/session_handler` | Mendix 세션 검증·인터랙티브 로그인 |
+| `mendraw_sidecar/version_handler` | XAS 응답 기반 버전 정보 수집 |
+| `mendraw_sidecar/xas_parser` | XAS JSON → `AppStore.Version` 파싱 |
+
 ## 의존성
+
+### mendraw (JS 타겟)
 
 - [gleam_stdlib](https://hexdocs.pm/gleam_stdlib/) — 표준 라이브러리
 - [gleam_javascript](https://hexdocs.pm/gleam_javascript/) — JS 타겟 유틸리티
 - [redraw](https://hexdocs.pm/redraw/) — React 바인딩 (위젯 렌더링)
 - [redraw_dom](https://hexdocs.pm/redraw_dom/) — DOM 속성/이벤트
 - [etch](https://hexdocs.pm/etch/) — 터미널 TUI (Marketplace CLI)
+
+### 사이드카 (Erlang 타겟)
+
+- [chrobot_extra](https://hexdocs.pm/chrobot_extra/) — Chrome DevTools Protocol 브라우저 자동화
+- [mist](https://hexdocs.pm/mist/) — HTTP 서버
+- [gleam_json](https://hexdocs.pm/gleam_json/) — JSON 인코딩/디코딩
 
 ## 라이선스
 

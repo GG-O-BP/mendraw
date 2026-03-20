@@ -1,0 +1,1 @@
+-record(web_socket_request, {headers :: chrobot_extra@protocol@network:headers()}).

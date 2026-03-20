@@ -1,0 +1,1 @@
+-record(array_arg, {value :: list(chrobot_extra:call_argument())}).

@@ -1,0 +1,1 @@
+-record(encoded_file, {data :: binary(), extension :: binary()}).

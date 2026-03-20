@@ -1,0 +1,1 @@
+-record(print_to_pdf_response, {data :: binary()}).

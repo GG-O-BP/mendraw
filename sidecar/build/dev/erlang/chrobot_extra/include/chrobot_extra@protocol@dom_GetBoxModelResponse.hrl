@@ -1,0 +1,1 @@
+-record(get_box_model_response, {model :: chrobot_extra@protocol@dom:box_model()}).
