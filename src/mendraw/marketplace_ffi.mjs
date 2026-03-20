@@ -147,15 +147,13 @@ export function startSidecar() {
 
 export function callSidecar(path, body, timeout) {
   const port = startSidecar();
-  try {
-    const result = execSync(
-      `curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:${port}${path}"`,
-      { input: JSON.stringify(body), encoding: "utf-8", timeout: timeout || 300000, shell: true },
-    );
-    return JSON.parse(result.trim());
-  } catch {
-    return null;
-  }
+  const result = execSync(
+    `curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:${port}${path}"`,
+    { input: JSON.stringify(body), encoding: "utf-8", timeout: timeout || 300000, shell: true },
+  );
+  const trimmed = result.trim();
+  if (!trimmed) throw new Error("사이드카 응답 없음");
+  return JSON.parse(trimmed);
 }
 
 export function stopSidecar() {
@@ -352,8 +350,8 @@ export function ensure_session() {
       { session_path: sessionPath },
       310000,
     );
-    if (result && result.ok === true) return true;
-    if (result && result.error) console.log(`  세션 실패: ${result.error}`);
+    if (result.ok === true) return true;
+    console.log(`  세션 실패: ${result.error || "알 수 없는 오류"}`);
     return false;
   } catch (e) {
     console.log(`  세션 확인 실패: ${e.message}`);

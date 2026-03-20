@@ -185,8 +185,8 @@ function ensureSessionForResolve() {
       { session_path: sessionPath },
       310000,
     );
-    if (result && result.ok === true) return true;
-    if (result && result.error) console.log(`  세션 실패: ${result.error}`);
+    if (result.ok === true) return true;
+    console.log(`  세션 실패: ${result.error || "알 수 없는 오류"}`);
     return false;
   } catch (e) {
     console.log(`  세션 확인 실패: ${e.message}`);
