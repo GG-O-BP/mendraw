@@ -1,0 +1,31 @@
+# Gleam 빌드
+*.beam
+*.ez
+/build
+erl_crash.dump
+
+# Lock 파일
+manifest.toml
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 에디터 / AI
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+.claude/
+
+# 위젯 캐시 (빌드 시 생성)
+widgets/*.mpk
