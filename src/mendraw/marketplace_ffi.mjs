@@ -350,12 +350,10 @@ export function ensure_session() {
       { session_path: sessionPath },
       310000,
     );
-    if (result.ok === true) return true;
-    console.log(`  세션 실패: ${result.error || "알 수 없는 오류"}`);
-    return false;
+    if (result.ok === true) return "";
+    return result.error || "알 수 없는 오류";
   } catch (e) {
-    console.log(`  세션 확인 실패: ${e.message}`);
-    return false;
+    return e.message;
   }
 }
 

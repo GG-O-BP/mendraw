@@ -144,7 +144,7 @@ fn widget_publisher(w: MarketplaceWidget) -> Option(String)
 fn widget_latest_version(w: MarketplaceWidget) -> Option(String)
 
 @external(javascript, "./marketplace_ffi.mjs", "ensure_session")
-fn ensure_session() -> Bool
+fn ensure_session() -> String
 
 @external(javascript, "./marketplace_ffi.mjs", "get_all_version_info")
 fn get_all_version_info(content_ids: List(Int)) -> VersionInfoMap
@@ -534,18 +534,12 @@ fn start_download(state: MarketplaceState) -> MarketplaceState {
       // 세션 확인 (스피너 애니메이션)
       show_loading("Mendix Marketplace", "세션 확인 중...")
       let _ = terminal.exit_raw()
-      let session_ok = ensure_session()
+      let session_err = ensure_session()
       let _ = terminal.enter_raw()
       stop_spinner()
 
-      case session_ok {
-        False ->
-          MarketplaceState(
-            ..state,
-            status_msg: Some(style.red("세션 확인 실패")),
-            view_mode: Browse,
-          )
-        True -> {
+      case session_err {
+        "" -> {
           // 로더 중지
           let state = case state.loader {
             Some(l) -> {
@@ -563,6 +557,12 @@ fn start_download(state: MarketplaceState) -> MarketplaceState {
           stop_spinner()
           enter_version_mode(state, selected_widgets, xas_data)
         }
+        msg ->
+          MarketplaceState(
+            ..state,
+            status_msg: Some(style.red("세션 확인 실패: " <> msg)),
+            view_mode: Browse,
+          )
       }
     }
   }
@@ -912,13 +912,9 @@ fn prompt_loop_inner(state: MarketplaceState) -> MarketplaceState {
                   }
                 })
               let content_ids = list.map(selected_widgets, fn(s) { s.0 })
-              let session_ready = ensure_session()
-              let new_state = case session_ready {
-                False -> {
-                  ui.print_warning("Mendix 로그인이 필요합니다.")
-                  state
-                }
-                True -> {
+              let session_err = ensure_session()
+              let new_state = case session_err {
+                "" -> {
                   io.println("")
                   ui.print_info("버전 정보 조회 중...")
                   let xas = get_all_version_info(content_ids)
@@ -927,6 +923,10 @@ fn prompt_loop_inner(state: MarketplaceState) -> MarketplaceState {
                       prompt_download_one(s.0, s.1, state.pat, xas, d)
                     })
                   MarketplaceState(..state, downloaded: dl)
+                }
+                msg -> {
+                  ui.print_warning("세션 확인 실패: " <> msg)
+                  state
                 }
               }
               let new_state = restart_loader(new_state)
