@@ -1,7 +1,7 @@
 # Gleam 빌드
 *.beam
 *.ez
-/build
+build/
 erl_crash.dump
 
 # Lock 파일

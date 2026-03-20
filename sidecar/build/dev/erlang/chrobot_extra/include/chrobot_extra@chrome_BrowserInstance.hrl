@@ -1,1 +1,0 @@
--record(browser_instance, {port :: gleam@erlang@port:port_()}).

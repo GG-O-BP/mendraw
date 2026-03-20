@@ -1,1 +1,0 @@
--record(get_outer_html_response, {outer_html :: binary()}).

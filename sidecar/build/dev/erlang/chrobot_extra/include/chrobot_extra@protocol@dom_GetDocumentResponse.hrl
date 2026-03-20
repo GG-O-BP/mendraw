@@ -1,1 +1,0 @@
--record(get_document_response, {root :: chrobot_extra@protocol@dom:node_()}).

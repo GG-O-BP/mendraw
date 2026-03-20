@@ -1,1 +1,0 @@
--record(create_browser_context_response, {browser_context_id :: binary()}).

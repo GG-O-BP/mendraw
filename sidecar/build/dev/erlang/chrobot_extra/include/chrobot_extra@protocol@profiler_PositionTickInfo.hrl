@@ -1,1 +1,0 @@
--record(position_tick_info, {line :: integer(), ticks :: integer()}).

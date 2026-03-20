@@ -1,1 +1,0 @@
--record(browser_error, {code :: integer(), message :: binary(), data :: binary()}).

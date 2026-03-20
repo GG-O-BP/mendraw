@@ -1,1 +1,0 @@
--record(bool_arg, {value :: boolean()}).

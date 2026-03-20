@@ -1,1 +1,0 @@
--record(get_request_post_data_response, {post_data :: binary()}).

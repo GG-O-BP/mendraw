@@ -1,1 +1,0 @@
--record(metric, {name :: binary(), value :: float()}).

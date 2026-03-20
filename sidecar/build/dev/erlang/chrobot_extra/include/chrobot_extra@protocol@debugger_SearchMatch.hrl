@@ -1,1 +1,0 @@
--record(search_match, {line_number :: float(), line_content :: binary()}).

@@ -1,1 +1,0 @@
--record(float_arg, {value :: float()}).

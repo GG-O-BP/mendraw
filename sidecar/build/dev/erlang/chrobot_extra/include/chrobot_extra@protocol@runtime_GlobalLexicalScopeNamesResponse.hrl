@@ -1,1 +1,0 @@
--record(global_lexical_scope_names_response, {names :: list(binary())}).

@@ -1,1 +1,0 @@
--record(rect, {x :: float(), y :: float(), width :: float(), height :: float()}).

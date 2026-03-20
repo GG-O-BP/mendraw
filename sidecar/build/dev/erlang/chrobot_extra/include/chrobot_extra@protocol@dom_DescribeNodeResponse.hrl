@@ -1,1 +1,0 @@
--record(describe_node_response, {node :: chrobot_extra@protocol@dom:node_()}).
