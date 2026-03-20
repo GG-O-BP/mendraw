@@ -76,51 +76,50 @@ const MX_DIR = ".marketplace-cache";
 let _sidecarProc = null;
 let _sidecarPort = null;
 
+function findEscriptPath() {
+  // 루트 프로젝트의 priv/
+  const cwdPriv = resolve("priv/mendraw_sidecar");
+  if (existsSync(cwdPriv)) return cwdPriv;
+  // Hex 의존성으로 설치된 경우
+  const pkgPriv = resolve("build/packages/mendraw/priv/mendraw_sidecar");
+  if (existsSync(pkgPriv)) return pkgPriv;
+  return null;
+}
+
 function getSidecarConfig() {
   // 로컬 개발: sidecar/ 디렉토리 직접 사용
   if (existsSync("sidecar/gleam.toml")) {
-    return { dir: "sidecar", module: "mendraw_sidecar" };
+    return { mode: "gleam", dir: "sidecar", module: "mendraw_sidecar" };
   }
-  // 프로덕션: mendraw_sidecar Hex 패키지 기반 runner 자동 생성
-  return ensureSidecarRunnerProject();
-}
-
-function ensureSidecarRunnerProject() {
-  const dir = `${MX_DIR}/sidecar`;
-  const buildFlag = `${dir}/build/dev/erlang`;
-  if (existsSync(buildFlag)) return { dir, module: "mendraw_sidecar_runner" };
-
-  mkdirSync(`${dir}/src`, { recursive: true });
-  writeFileSync(`${dir}/gleam.toml`, [
-    'name = "mendraw_sidecar_runner"',
-    'version = "0.0.1"',
-    'target = "erlang"',
-    '',
-    '[dependencies]',
-    'mendraw_sidecar = ">= 1.0.0 and < 2.0.0"',
-  ].join('\n'));
-  writeFileSync(`${dir}/src/mendraw_sidecar_runner.gleam`, [
-    'import mendraw_sidecar',
-    '',
-    'pub fn main() {',
-    '  mendraw_sidecar.main()',
-    '}',
-  ].join('\n'));
-
-  console.log("  사이드카 초기 설정 중...");
-  execSync("gleam build", { cwd: dir, shell: true, stdio: "inherit" });
-  return { dir, module: "mendraw_sidecar_runner" };
+  // 프로덕션: escript 바이너리 사용
+  const escriptPath = findEscriptPath();
+  if (escriptPath) {
+    return { mode: "escript", path: escriptPath };
+  }
+  throw new Error(
+    "사이드카를 찾을 수 없습니다.\n" +
+    "  - 로컬 개발: sidecar/ 디렉토리가 필요합니다\n" +
+    "  - 프로덕션: priv/mendraw_sidecar escript가 필요합니다\n" +
+    "  빌드: cd sidecar && gleam run -m gleescript -- --out ../priv"
+  );
 }
 
 export function startSidecar() {
   if (_sidecarProc && _sidecarPort) return _sidecarPort;
 
-  const { dir, module: mod } = getSidecarConfig();
+  const config = getSidecarConfig();
   const port = 10000 + Math.floor(Math.random() * 50000);
 
-  const proc = spawn("gleam", ["run", "-m", mod, "--", String(port)], {
-    cwd: dir, shell: true, stdio: ["ignore", "pipe", "inherit"],
-  });
+  let proc;
+  if (config.mode === "gleam") {
+    proc = spawn("gleam", ["run", "-m", config.module, "--", String(port)], {
+      cwd: config.dir, shell: true, stdio: ["ignore", "pipe", "inherit"],
+    });
+  } else {
+    proc = spawn("escript", [config.path, String(port)], {
+      shell: true, stdio: ["ignore", "pipe", "inherit"],
+    });
+  }
 
   // health check 폴링 (최대 30초)
   const deadline = Date.now() + 30000;

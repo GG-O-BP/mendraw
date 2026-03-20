@@ -10,10 +10,12 @@ import mendraw_sidecar/router
 import mist
 
 pub fn main() {
-  let port = case get_plain_arguments() {
-    [port_str, ..] -> int.parse(port_str) |> result.unwrap(0)
-    _ -> 0
-  }
+  // escript 모드에서는 스크립트 경로도 인자에 포함되므로,
+  // 정수로 파싱 가능한 첫 인자를 포트로 사용
+  let port =
+    get_arguments()
+    |> list.find_map(int.parse)
+    |> result.unwrap(0)
 
   let assert Ok(_) =
     router.handler()
@@ -25,21 +27,6 @@ pub fn main() {
   process.sleep_forever()
 }
 
-// Erlang init:get_plain_arguments() — gleam run -- <args>
-fn get_plain_arguments() -> List(String) {
-  do_get_plain_arguments()
-  |> list.filter_map(fn(charlist) {
-    case charlist_to_string(charlist) {
-      Ok(s) -> Ok(s)
-      Error(_) -> Error(Nil)
-    }
-  })
-}
-
-type Charlist
-
-@external(erlang, "init", "get_plain_arguments")
-fn do_get_plain_arguments() -> List(Charlist)
-
-@external(erlang, "unicode", "characters_to_binary")
-fn charlist_to_string(charlist: Charlist) -> Result(String, Nil)
+// CLI 인자 취득 — charlist(gleam run)와 binary(escript) 양쪽 처리
+@external(erlang, "mendraw_sidecar_ffi", "get_arguments")
+fn get_arguments() -> List(String)

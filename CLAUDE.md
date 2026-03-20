@@ -10,6 +10,7 @@ gleam test           # 테스트 실행
 gleam format src test  # 포맷 체크 (CI에서도 --check로 검증)
 gleam run -m mendraw/install  # TOML 위젯 다운로드 + build/widgets/ 캐시 → src/widgets/*.gleam 바인딩 생성
 gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로드 TUI
+cd sidecar && gleam run -m gleescript -- --out ../priv  # 사이드카 escript 빌드 → priv/mendraw_sidecar
 ```
 
 ## 프로젝트 구조
@@ -34,7 +35,7 @@ gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로�
   - `src/mendraw_sidecar/version_handler.gleam` — /versions/all, /versions/single: 버전 정보 수집
   - `src/mendraw_sidecar/xas_parser.gleam` — XAS JSON → AppStore.Version 파싱
 - mendraw(JS 타겟)는 사이드카를 HTTP로 호출 — `marketplace_ffi.mjs`의 `startSidecar`/`callSidecar`/`stopSidecar`
-- 개발 시: `sidecar/` 디렉토리 직접 사용. 배포 시: `mendraw_sidecar` Hex 패키지로 별도 배포
+- 개발 시: `sidecar/` 디렉토리 직접 사용. 배포 시: escript 빌드하여 `priv/mendraw_sidecar`에 포함
 
 ## 코드 컨벤션
 
@@ -67,6 +68,8 @@ gleam run -m mendraw/marketplace  # Mendix Marketplace 위젯 검색·다운로�
 ```bash
 cd sidecar && gleam build          # 사이드카 컴파일
 cd sidecar && gleam run -m mendraw_sidecar -- 9999  # 포트 9999로 서버 시작
+cd sidecar && gleam run -m gleescript -- --out ../priv  # escript 빌드
+escript priv/mendraw_sidecar 9999  # escript로 직접 실행
 curl http://127.0.0.1:9999/health  # {"status":"ok"} 확인
 ```
 

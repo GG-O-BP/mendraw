@@ -19,6 +19,9 @@ node_modules/
 Thumbs.db
 Desktop.ini
 
+# escript 바이너리 (빌드 산출물)
+priv/mendraw_sidecar
+
 # 에디터 / AI
 *.swp
 *.swo
