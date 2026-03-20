@@ -4,4 +4,4 @@
 //// `gleam run -m mendraw/install`을 실행하면
 //// src/widgets/에 위젯 바인딩이 자동 생성됩니다.
 
-pub const version = "1.1.4"
+pub const version = "1.1.5"

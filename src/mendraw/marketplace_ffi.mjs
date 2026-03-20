@@ -80,6 +80,9 @@ function findEscriptPath() {
   // 루트 프로젝트의 priv/
   const cwdPriv = resolve("priv/mendraw_sidecar");
   if (existsSync(cwdPriv)) return cwdPriv;
+  // 빌드 출력 (path 의존성)
+  const devPriv = resolve("build/dev/javascript/mendraw/priv/mendraw_sidecar");
+  if (existsSync(devPriv)) return devPriv;
   // Hex 의존성으로 설치된 경우
   const pkgPriv = resolve("build/packages/mendraw/priv/mendraw_sidecar");
   if (existsSync(pkgPriv)) return pkgPriv;
