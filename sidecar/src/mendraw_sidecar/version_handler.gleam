@@ -1,5 +1,6 @@
 // /versions/all, /versions/single 핸들러
 // headless 브라우저로 Marketplace 컴포넌트 페이지 → Releases 탭 → XAS 응답 수집
+// 프로필 기반: 공유 프로필에 이미 인증 쿠키가 있다고 가정
 
 import chrobot_extra
 import chrobot_extra/chrome
@@ -7,7 +8,6 @@ import chrobot_extra/network_idle
 import chrobot_extra/network_listener
 import chrobot_extra/protocol/page as page_protocol
 import chrobot_extra/protocol/runtime
-import chrobot_extra/session
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/erlang/process
@@ -32,30 +32,25 @@ pub fn handle_all(req: Request(Connection)) -> Response(ResponseData) {
     Ok(body) -> {
       case parse_all_request(body) {
         Error(msg) -> http_utils.error_response(msg)
-        Ok(#(session_path, content_ids)) ->
-          do_get_all_versions(session_path, content_ids)
+        Ok(content_ids) -> do_get_all_versions(content_ids)
       }
     }
   }
 }
 
-fn parse_all_request(body: String) -> Result(#(String, List(Int)), String) {
+fn parse_all_request(body: String) -> Result(List(Int), String) {
   let decoder = {
-    use session_path <- decode.field("session_path", decode.string)
     use content_ids <- decode.field("content_ids", decode.list(decode.int))
-    decode.success(#(session_path, content_ids))
+    decode.success(content_ids)
   }
   case json.parse(body, decoder) {
-    Ok(result) -> Ok(result)
-    Error(_) -> Error("session_path, content_ids 필드가 필요합니다")
+    Ok(ids) -> Ok(ids)
+    Error(_) -> Error("content_ids 필드가 필요합니다")
   }
 }
 
-fn do_get_all_versions(
-  session_path: String,
-  content_ids: List(Int),
-) -> Response(ResponseData) {
-  case get_all_versions(session_path, content_ids) {
+fn do_get_all_versions(content_ids: List(Int)) -> Response(ResponseData) {
+  case get_all_versions(content_ids) {
     Ok(results) -> {
       let entries =
         dict.to_list(results)
@@ -70,45 +65,22 @@ fn do_get_all_versions(
 }
 
 fn get_all_versions(
-  session_path: String,
   content_ids: List(Int),
 ) -> Result(Dict(Int, List(XasVersion)), String) {
-  // 세션 로드
-  use state <- result.try(
-    session.load_from_file(session_path)
-    |> result.map_error(fn(_) { "세션 파일 로드 실패" }),
-  )
-
-  // headless 브라우저 시작
   use browser <- result.try(
     chrobot_extra.launch()
     |> result.map_error(fn(_) { "브라우저 시작 실패" }),
   )
 
-  let result = {
-    // 초기 페이지 열기 + 세션 복원
-    use page <- result.try(
-      chrobot_extra.open(browser, "https://marketplace.mendix.com/", 30_000)
-      |> result.map_error(fn(_) { "페이지 열기 실패" }),
-    )
-
-    use _ <- result.try(
-      session.restore(page, state)
-      |> result.map_error(fn(_) { "세션 복원 실패" }),
-    )
-
-    // 각 content_id에 대해 버전 정보 수집
-    let results =
-      list.fold(content_ids, dict.new(), fn(acc, content_id) {
-        let versions = collect_versions_for_id(browser, content_id)
-        dict.insert(acc, content_id, versions)
-      })
-
-    Ok(results)
-  }
+  // 각 content_id에 대해 버전 정보 수집
+  let results =
+    list.fold(content_ids, dict.new(), fn(acc, content_id) {
+      let versions = collect_versions_for_id(browser, content_id)
+      dict.insert(acc, content_id, versions)
+    })
 
   let _ = chrobot_extra.quit(browser)
-  result
+  Ok(results)
 }
 
 // 단일 content_id에 대한 버전 정보 수집
@@ -220,6 +192,7 @@ fn collect_versions_impl(
   result
 }
 
+
 // s3_object_id 기준 중복 제거
 fn deduplicate_versions(versions: List(XasVersion)) -> List(XasVersion) {
   list.fold(versions, #([], dict.new()), fn(acc, v) {
@@ -297,33 +270,31 @@ pub fn handle_single(req: Request(Connection)) -> Response(ResponseData) {
     Ok(body) -> {
       case parse_single_request(body) {
         Error(msg) -> http_utils.error_response(msg)
-        Ok(#(session_path, content_id, target_version)) ->
-          do_get_single_version(session_path, content_id, target_version)
+        Ok(#(content_id, target_version)) ->
+          do_get_single_version(content_id, target_version)
       }
     }
   }
 }
 
-fn parse_single_request(body: String) -> Result(#(String, Int, String), String) {
+fn parse_single_request(body: String) -> Result(#(Int, String), String) {
   let decoder = {
-    use session_path <- decode.field("session_path", decode.string)
     use content_id <- decode.field("content_id", decode.int)
     use target_version <- decode.field("target_version", decode.string)
-    decode.success(#(session_path, content_id, target_version))
+    decode.success(#(content_id, target_version))
   }
   case json.parse(body, decoder) {
     Ok(result) -> Ok(result)
-    Error(_) -> Error("session_path, content_id, target_version 필드가 필요합니다")
+    Error(_) -> Error("content_id, target_version 필드가 필요합니다")
   }
 }
 
 fn do_get_single_version(
-  session_path: String,
   content_id: Int,
   target_version: String,
 ) -> Response(ResponseData) {
   case
-    get_all_versions(session_path, [content_id])
+    get_all_versions([content_id])
     |> result.map(fn(results) {
       let versions = result.unwrap(dict.get(results, content_id), [])
       list.find(versions, fn(v) { v.version_number == target_version })
