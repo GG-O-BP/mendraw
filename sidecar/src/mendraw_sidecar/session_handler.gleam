@@ -68,32 +68,63 @@ fn validate_existing_session(session_path: String) -> Result(Bool, String) {
 
   use browser <- result.try(
     chrobot_extra.launch()
-    |> result.map_error(fn(_) { "브라우저 시작 실패" }),
+    |> result.map_error(fn(e) {
+      "브라우저 시작 실패: " <> string.inspect(e)
+    }),
   )
 
   let result = {
+    // marketplace에서 세션 복원 (쿠키 + localStorage)
     use page <- result.try(
       chrobot_extra.open(browser, "https://marketplace.mendix.com/", 30_000)
-      |> result.map_error(fn(_) { "페이지 열기 실패" }),
+      |> result.map_error(fn(e) {
+        "페이지 열기 실패: " <> string.inspect(e)
+      }),
+    )
+
+    use _ <- result.try(
+      chrobot_extra.await_selector(
+        on: chrobot_extra.with_timeout(page, 30_000),
+        select: "body",
+      )
+      |> result.map_error(fn(e) {
+        "페이지 로드 대기 실패: " <> string.inspect(e)
+      }),
     )
 
     use _ <- result.try(
       session.restore(page, state)
-      |> result.map_error(fn(_) { "세션 복원 실패" }),
+      |> result.map_error(fn(e) {
+        "세션 복원 실패: " <> string.inspect(e)
+      }),
     )
 
-    // 3초 대기 후 URL 확인
-    use url <- result.try(
-      browser_utils.wait_for_url(
-        page: chrobot_extra.with_timeout(page, 10_000),
-        matching: fn(url) { !string.contains(url, "login.mendix") },
-        time_out: 10_000,
+    // home.mendix.com으로 검증 — 미로그인 시 login으로 리다이렉트됨
+    use check_page <- result.try(
+      chrobot_extra.open(browser, "https://home.mendix.com/", 30_000)
+      |> result.map_error(fn(e) {
+        "검증 페이지 열기 실패: " <> string.inspect(e)
+      }),
+    )
+
+    use _ <- result.try(
+      chrobot_extra.await_selector(
+        on: chrobot_extra.with_timeout(check_page, 30_000),
+        select: "body",
       )
-      |> result.map_error(fn(_) { "URL 확인 실패" }),
+      |> result.map_error(fn(e) {
+        "검증 페이지 로드 대기 실패: " <> string.inspect(e)
+      }),
     )
 
-    let valid = !string.contains(url, "login.mendix")
-    Ok(valid)
+    use url <- result.try(
+      browser_utils.get_url(check_page)
+      |> result.map_error(fn(e) {
+        "URL 확인 실패: " <> string.inspect(e)
+      }),
+    )
+
+    Ok(string.contains(url, "home.mendix"))
   }
 
   let _ = chrobot_extra.quit(browser)
@@ -118,34 +149,61 @@ fn do_interactive_login(session_path: String) -> Response(ResponseData) {
 fn interactive_login(session_path: String) -> Result(Nil, String) {
   use browser <- result.try(
     chrobot_extra.launch_window()
-    |> result.map_error(fn(_) { "visible 브라우저 시작 실패" }),
+    |> result.map_error(fn(e) {
+      "visible 브라우저 시작 실패: " <> string.inspect(e)
+    }),
   )
 
   let result = {
     use page <- result.try(
       chrobot_extra.open(browser, "https://login.mendix.com/", 30_000)
-      |> result.map_error(fn(_) { "로그인 페이지 열기 실패" }),
+      |> result.map_error(fn(e) {
+        "로그인 페이지 열기 실패: " <> string.inspect(e)
+      }),
     )
 
-    // 5분 타임아웃으로 사용자 로그인 완료 대기
+    // 로그인 완료 대기 — 완료 시 home.mendix.com으로 이동됨
     use _ <- result.try(
       browser_utils.wait_for_url(
         page: chrobot_extra.with_timeout(page, 300_000),
-        matching: fn(url) { !string.contains(url, "login.mendix") },
+        matching: fn(url) { string.contains(url, "home.mendix") },
         time_out: 300_000,
       )
-      |> result.map_error(fn(_) { "로그인 타임아웃 (5분)" }),
+      |> result.map_error(fn(e) {
+        "로그인 타임아웃 (5분): " <> string.inspect(e)
+      }),
     )
 
-    // 세션 저장
+    // 세션 캡처용 새 페이지 (cross-origin 이동 후 기존 page 컨텍스트 무효)
+    use fresh_page <- result.try(
+      chrobot_extra.open(browser, "https://marketplace.mendix.com/", 30_000)
+      |> result.map_error(fn(e) {
+        "세션 캡처 페이지 열기 실패: " <> string.inspect(e)
+      }),
+    )
+
+    use _ <- result.try(
+      chrobot_extra.await_selector(
+        on: chrobot_extra.with_timeout(fresh_page, 30_000),
+        select: "body",
+      )
+      |> result.map_error(fn(e) {
+        "페이지 로드 대기 실패: " <> string.inspect(e)
+      }),
+    )
+
     use state <- result.try(
-      session.save(page)
-      |> result.map_error(fn(_) { "세션 저장 실패" }),
+      session.save(fresh_page)
+      |> result.map_error(fn(e) {
+        "세션 저장 실패: " <> string.inspect(e)
+      }),
     )
 
     use _ <- result.try(
       session.save_to_file(state, session_path)
-      |> result.map_error(fn(_) { "세션 파일 쓰기 실패" }),
+      |> result.map_error(fn(e) {
+        "세션 파일 쓰기 실패: " <> string.inspect(e)
+      }),
     )
 
     Ok(Nil)
