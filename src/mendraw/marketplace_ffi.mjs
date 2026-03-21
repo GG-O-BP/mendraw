@@ -179,6 +179,7 @@ process.on("exit", stopSidecar);
 let loaderWidgets = [];
 let loaderOffset = 0;
 let loaderDone = false;
+let loaderGeneration = 0;
 
 // ── 디렉토리 보장 ──
 
@@ -219,6 +220,7 @@ export function load_first_batch(pat) {
 
 export function spawn_loader(pat, offset, widgetsJson) {
   const seedWidgets = JSON.parse(widgetsJson);
+  const gen = ++loaderGeneration;
 
   // 초기 상태를 모듈 변수에 저장
   loaderWidgets = seedWidgets;
@@ -264,6 +266,7 @@ export function spawn_loader(pat, offset, widgetsJson) {
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
   });
   child.on('message', (msg) => {
+    if (gen !== loaderGeneration) return;
     if (msg && msg.type === "update") {
       loaderWidgets = msg.widgets;
       loaderOffset = msg.offset;
@@ -271,7 +274,7 @@ export function spawn_loader(pat, offset, widgetsJson) {
     }
   });
   child.on('exit', () => {
-    loaderDone = true;
+    if (gen === loaderGeneration) loaderDone = true;
   });
   return { child, scriptPath };
 }
@@ -295,6 +298,7 @@ export function cleanup_loader(loader) {
 
 export function kill_loader(loader) {
   if (!loader) return;
+  loaderGeneration++;
   try { loader.child.kill(); } catch {}
 }
 

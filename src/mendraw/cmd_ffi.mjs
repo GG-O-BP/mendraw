@@ -50,7 +50,8 @@ function parseMendrawToml() {
       const path = sectionMatch[1];
       if (path === "tools.mendraw") currentSection = "root";
       else if (path.startsWith("tools.mendraw.widgets.")) {
-        const wn = path.slice("tools.mendraw.widgets.".length);
+        let wn = path.slice("tools.mendraw.widgets.".length);
+        if (wn.startsWith('"') && wn.endsWith('"')) wn = wn.slice(1, -1);
         currentSection = "widgets." + wn;
         if (!result.widgets[wn]) result.widgets[wn] = {};
       } else currentSection = null;
@@ -73,6 +74,10 @@ function parseMendrawToml() {
   }
 
   return result;
+}
+
+function quoteTomlSegment(key) {
+  return /[^A-Za-z0-9_-]/.test(key) ? `"${key}"` : key;
 }
 
 function formatTomlValue(value) {
@@ -392,7 +397,7 @@ export function resolve_toml_widgets() {
         console.log(`'${name}' 위젯을 찾을 수 없습니다`);
         continue;
       }
-      writeTomlKey(`tools.mendraw.widgets.${name}`, "id", contentId);
+      writeTomlKey(`tools.mendraw.widgets.${quoteTomlSegment(name)}`, "id", contentId);
     }
 
     // 사이드카 세션 + s3_id 확보
@@ -409,7 +414,7 @@ export function resolve_toml_widgets() {
     // s3_id 저장 여부 확인
     const answer = promptSyncSimple(`  ${name}의 s3_id를 gleam.toml에 저장하시겠습니까? (y/n): `);
     if (answer.toLowerCase() === "y") {
-      writeTomlKey(`tools.mendraw.widgets.${name}`, "s3_id", s3_id);
+      writeTomlKey(`tools.mendraw.widgets.${quoteTomlSegment(name)}`, "s3_id", s3_id);
     }
 
     // 다운로드 + 추출
@@ -423,7 +428,7 @@ export function write_widget_toml(name, version, id_option, s3_id_option) {
   if (id_option instanceof Some) entries.push(["id", id_option[0]]);
   if (s3_id_option instanceof Some) entries.push(["s3_id", s3_id_option[0]]);
 
-  const sectionPath = `tools.mendraw.widgets.${name}`;
+  const sectionPath = `tools.mendraw.widgets.${quoteTomlSegment(name)}`;
   const config = parseMendrawToml();
   const existing = config?.widgets?.[name];
 

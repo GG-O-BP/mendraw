@@ -437,8 +437,10 @@ fn handle_version_key(
 ) -> Promise(MarketplaceState) {
   case key {
     KeyCtrlC -> promise.resolve(state)
-    KeyEscape ->
-      tui_loop(MarketplaceState(..state, view_mode: Browse, status_msg: None))
+    KeyEscape -> {
+      let s = MarketplaceState(..state, view_mode: Browse, status_msg: None)
+      tui_loop(restart_loader(s))
+    }
     KeyUp -> {
       case state.view_mode {
         SelectVersion(n, vs, vc, q, x, cid) -> {
