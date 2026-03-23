@@ -64,7 +64,7 @@ fn do_get_all_versions(content_ids: List(Int)) -> Response(ResponseData) {
   }
 }
 
-fn get_all_versions(
+pub fn get_all_versions(
   content_ids: List(Int),
 ) -> Result(Dict(Int, List(XasVersion)), String) {
   use browser <- result.try(
@@ -191,7 +191,6 @@ fn collect_versions_impl(
   let _ = chrobot_extra.close(page)
   result
 }
-
 
 // s3_object_id 기준 중복 제거
 fn deduplicate_versions(versions: List(XasVersion)) -> List(XasVersion) {

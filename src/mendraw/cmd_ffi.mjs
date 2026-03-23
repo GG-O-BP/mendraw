@@ -1,10 +1,100 @@
 // 위젯 .mpk 파일 파싱 + 바인딩 생성 + TOML 위젯 관리 FFI 어댑터
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, readSync } from "node:fs";
 import { resolve } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { Some, None } from "../../gleam_stdlib/gleam/option.mjs";
-import { callSidecar } from "./marketplace_ffi.mjs";
+
+// ── 사이드카 HTTP 클라이언트 (cmd 전용) ──
+
+let _sidecarProc = null;
+let _sidecarPort = null;
+
+function findEscriptPath() {
+  const cwdPriv = resolve("priv/mendraw_sidecar");
+  if (existsSync(cwdPriv)) return cwdPriv;
+  const devPriv = resolve("build/dev/javascript/mendraw/priv/mendraw_sidecar");
+  if (existsSync(devPriv)) return devPriv;
+  const pkgPriv = resolve("build/packages/mendraw/priv/mendraw_sidecar");
+  if (existsSync(pkgPriv)) return pkgPriv;
+  return null;
+}
+
+function getSidecarConfig() {
+  if (existsSync("sidecar/gleam.toml")) {
+    return { mode: "gleam", dir: "sidecar", module: "mendraw_sidecar" };
+  }
+  const escriptPath = findEscriptPath();
+  if (escriptPath) {
+    return { mode: "escript", path: escriptPath };
+  }
+  throw new Error(
+    "사이드카를 찾을 수 없습니다.\n" +
+    "  - 로컬 개발: sidecar/ 디렉토리가 필요합니다\n" +
+    "  - 프로덕션: priv/mendraw_sidecar escript가 필요합니다\n" +
+    "  빌드: cd sidecar && gleam run -m gleescript -- --out ../priv"
+  );
+}
+
+function startSidecar() {
+  if (_sidecarProc && _sidecarPort) return _sidecarPort;
+  const config = getSidecarConfig();
+  const port = 10000 + Math.floor(Math.random() * 50000);
+  let proc;
+  if (config.mode === "gleam") {
+    proc = spawn("gleam", ["run", "-m", config.module, "--", String(port)], {
+      cwd: config.dir, stdio: ["ignore", "pipe", "inherit"],
+    });
+  } else {
+    proc = spawn("escript", [config.path, String(port)], {
+      stdio: ["ignore", "pipe", "inherit"],
+    });
+  }
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    try {
+      const result = execSync(
+        `curl -s "http://127.0.0.1:${port}/health"`,
+        { encoding: "utf-8", timeout: 3000, shell: true },
+      );
+      if (JSON.parse(result).status === "ok") {
+        _sidecarProc = proc;
+        _sidecarPort = port;
+        proc.on("exit", () => { _sidecarProc = null; _sidecarPort = null; });
+        return port;
+      }
+    } catch {}
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+  }
+  try { proc.kill(); } catch {}
+  throw new Error("사이드카 시작 실패 (30초 타임아웃)");
+}
+
+function callSidecar(path, body, timeout) {
+  const port = startSidecar();
+  const result = execSync(
+    `curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:${port}${path}"`,
+    { input: JSON.stringify(body), encoding: "utf-8", timeout: timeout || 300000, shell: true },
+  );
+  const trimmed = result.trim();
+  if (!trimmed) throw new Error("사이드카 응답 없음");
+  return JSON.parse(trimmed);
+}
+
+function stopSidecar() {
+  if (!_sidecarPort) return;
+  try {
+    execSync(
+      `curl -s -X POST "http://127.0.0.1:${_sidecarPort}/shutdown"`,
+      { encoding: "utf-8", timeout: 3000, shell: true },
+    );
+  } catch {}
+  try { _sidecarProc?.kill(); } catch {}
+  _sidecarProc = null;
+  _sidecarPort = null;
+}
+
+process.on("exit", stopSidecar);
 
 export function file_exists(path) {
   return existsSync(path);
