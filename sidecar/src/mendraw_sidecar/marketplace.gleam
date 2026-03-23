@@ -3,7 +3,6 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/int
-import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -21,7 +20,6 @@ import shore
 import shore/key
 import shore/style
 import shore/ui
-import simplifile
 
 // ── 상수 ──
 
@@ -49,7 +47,6 @@ type Model {
   Model(
     pat: String,
     project_root: String,
-    result_path: String,
     all_widgets: List(Widget),
     filtered: Option(List(Widget)),
     page_index: Int,
@@ -58,7 +55,6 @@ type Model {
     all_loaded: Bool,
     loader: Option(LoaderHandle),
     offset: Int,
-    downloaded: List(downloader.DownloadResult),
     search_query: String,
     view_mode: ViewMode,
     status_msg: Option(String),
@@ -106,13 +102,12 @@ type Msg {
 // ── 공개 API ──
 
 /// Marketplace TUI 실행 (Shore TEA)
-/// result_path: JSON 결과를 쓸 파일 경로
-pub fn run(pat: String, project_root: String, result_path: String) -> Nil {
+pub fn run(pat: String, project_root: String) -> Nil {
   let exit = process.new_subject()
 
   let assert Ok(_) =
     shore.spec_with_subject(
-      init: fn(subject) { init(pat, project_root, result_path, subject, exit) },
+      init: fn(subject) { init(pat, project_root, subject, exit) },
       view: view_fn,
       update: update,
       exit: exit,
@@ -137,7 +132,6 @@ pub fn run(pat: String, project_root: String, result_path: String) -> Nil {
 fn init(
   pat: String,
   project_root: String,
-  result_path: String,
   shore_subject: Subject(Msg),
   exit_subject: Subject(Nil),
 ) -> #(Model, List(fn() -> Msg)) {
@@ -145,7 +139,6 @@ fn init(
     Model(
       pat: pat,
       project_root: project_root,
-      result_path: result_path,
       all_widgets: [],
       filtered: None,
       page_index: 0,
@@ -154,7 +147,6 @@ fn init(
       all_loaded: False,
       loader: None,
       offset: 0,
-      downloaded: [],
       search_query: "",
       view_mode: InitialLoading("위젯 목록 불러오는 중..."),
       status_msg: None,
@@ -241,7 +233,6 @@ fn update(model: Model, msg: Msg) -> #(Model, List(fn() -> Msg)) {
 fn update_inner(model: Model, msg: Msg) -> #(Model, List(fn() -> Msg)) {
   case msg {
     Quit -> {
-      output_results(model)
       cleanup(model)
       case model.exit_subject {
         Some(exit) -> process.send(exit, Nil)
@@ -615,11 +606,7 @@ fn update_inner(model: Model, msg: Msg) -> #(Model, List(fn() -> Msg)) {
       case result {
         Ok(dl) -> {
           let model =
-            Model(
-              ..model,
-              downloaded: [dl, ..model.downloaded],
-              status_msg: Some("  " <> dl.s3_id),
-            )
+            Model(..model, status_msg: Some("  " <> dl.s3_id))
           enter_version_mode(model, queue, xas_data)
         }
         Error(msg) -> {
@@ -781,24 +768,4 @@ fn cleanup(model: Model) -> Nil {
   Nil
 }
 
-fn output_results(model: Model) -> Nil {
-  let downloaded_json =
-    json.object([
-      #(
-        "downloaded",
-        json.array(model.downloaded, fn(dl) {
-          json.object([
-            #("name", json.string(dl.name)),
-            #("version", json.string(dl.version)),
-            #("content_id", case dl.content_id {
-              Some(id) -> json.int(id)
-              None -> json.null()
-            }),
-            #("s3_id", json.string(dl.s3_id)),
-          ])
-        }),
-      ),
-    ])
-  let _ = simplifile.write(model.result_path, json.to_string(downloaded_json))
-  Nil
-}
+

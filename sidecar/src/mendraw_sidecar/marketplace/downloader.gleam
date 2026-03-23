@@ -273,17 +273,20 @@ fn dirname(path: String) -> String {
   }
 }
 
-/// package.xml에서 widgetFile 경로 추출
+/// package.xml에서 <widgetFile path="..."/> 경로 추출
 fn extract_widget_file_paths(xml: String) -> List(String) {
-  // 간단한 정규식 대체: widgetFile="..." 패턴 매칭
   do_extract_widget_paths(xml, [])
 }
 
 fn do_extract_widget_paths(remaining: String, acc: List(String)) -> List(String) {
-  case string.split_once(remaining, "widgetFile=\"") {
+  case string.split_once(remaining, "widgetFile") {
     Ok(#(_, rest)) ->
-      case string.split_once(rest, "\"") {
-        Ok(#(path, after)) -> do_extract_widget_paths(after, [path, ..acc])
+      case string.split_once(rest, "path=\"") {
+        Ok(#(_, rest2)) ->
+          case string.split_once(rest2, "\"") {
+            Ok(#(path, after)) -> do_extract_widget_paths(after, [path, ..acc])
+            Error(_) -> list.reverse(acc)
+          }
         Error(_) -> list.reverse(acc)
       }
     Error(_) -> list.reverse(acc)

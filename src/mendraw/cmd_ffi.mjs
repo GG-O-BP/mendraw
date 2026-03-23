@@ -1,6 +1,6 @@
 // 위젯 .mpk 파일 파싱 + 바인딩 생성 + TOML 위젯 관리 FFI 어댑터
 import { execSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, readSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, readSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { Some, None } from "../../gleam_stdlib/gleam/option.mjs";
@@ -447,7 +447,18 @@ function downloadAndExtractToCache(name, version, id, url) {
 // gleam.toml [tools.mendraw.widgets.*]에 등록된 위젯을 다운로드/캐시한다
 export function resolve_toml_widgets() {
   const config = parseMendrawToml();
-  if (!config?.widgets || Object.keys(config.widgets).length === 0) return;
+  const tomlNames = new Set(config?.widgets ? Object.keys(config.widgets) : []);
+
+  // TOML에 없는 캐시 삭제
+  if (existsSync("build/widgets")) {
+    for (const dir of readdirSync("build/widgets")) {
+      if (!tomlNames.has(dir)) {
+        try { rmSync(`build/widgets/${dir}`, { recursive: true }); } catch {}
+      }
+    }
+  }
+
+  if (tomlNames.size === 0) return;
 
   for (const [name, widget] of Object.entries(config.widgets)) {
     if (!widget.version) {
@@ -455,14 +466,19 @@ export function resolve_toml_widgets() {
       continue;
     }
 
-    // 캐시 확인
-    const metaPath = `build/widgets/${name}/meta.toml`;
+    // 캐시 확인 (meta.toml 버전 + 위젯 XML 존재 여부)
+    const cacheDir = `build/widgets/${name}`;
+    const metaPath = `${cacheDir}/meta.toml`;
     if (existsSync(metaPath)) {
       try {
         const meta = parseMetaToml(metaPath);
         if (meta.version === widget.version) {
-          console.log(`${name} v${widget.version} — 캐시 사용`);
-          continue;
+          const files = readdirSync(cacheDir);
+          const hasWidgetXml = files.some(f => f.endsWith(".xml") && f !== "package.xml");
+          if (hasWidgetXml || meta.classic) {
+            console.log(`${name} v${widget.version} — 캐시 사용`);
+            continue;
+          }
         }
       } catch {}
     }
@@ -1119,14 +1135,18 @@ export function generate_widget_bindings() {
   const hasCacheDir = existsSync("build/widgets");
   if (!hasCacheDir) return;
 
+  const config = parseMendrawToml();
+  const tomlNames = new Set(config?.widgets ? Object.keys(config.widgets) : []);
+
   const widgets = []; // pluggable: { name, safeId, mjsContent, cssContent }
   const classicWidgets = []; // classic: { name, safeId, widgetId, jsFiles, templateFiles, css, libFiles }
   const processedNames = new Set();
 
-  // ── build/widgets/ 캐시에서 읽기 (TOML 기반) ──
+  // ── build/widgets/ 캐시에서 읽기 (TOML 등록 위젯만) ──
   try {
     const cacheDirs = readdirSync("build/widgets");
     for (const dirName of cacheDirs) {
+      if (!tomlNames.has(dirName)) continue;
       const cacheDir = `build/widgets/${dirName}`;
       try {
         if (!statSync(cacheDir).isDirectory()) continue;
@@ -1135,52 +1155,73 @@ export function generate_widget_bindings() {
       if (!existsSync(metaPath)) continue;
 
       const files = readdirSync(cacheDir);
-      const mjsFile = files.find(f => f.endsWith(".mjs"));
-      if (!mjsFile) {
+      const xmlFiles = files.filter(f => f.endsWith(".xml") && f !== "package.xml");
+      const mjsFiles = files.filter(f => f.endsWith(".mjs"));
+
+      if (mjsFiles.length === 0) {
         // Classic 위젯: meta.toml의 classic 플래그 확인
         try {
           const meta = parseMetaToml(metaPath);
           if (!meta.classic) continue;
         } catch { continue; }
 
-        // widget XML에서 이름/ID/속성 파싱
-        const xmlFile = files.find(f => f.endsWith(".xml") && f !== "package.xml");
-        if (!xmlFile) continue;
-        const widgetXml = readFileSync(`${cacheDir}/${xmlFile}`, "utf-8");
-        const widgetName = parseWidgetName(widgetXml);
-        if (!widgetName || processedNames.has(widgetName)) continue;
-        const idMatch = widgetXml.match(/widget\s+[^>]*id="([^"]+)"/);
-        if (!idMatch) continue;
-
+        // 모든 widget XML에서 이름/ID/속성 파싱
         const { jsFiles, templateFiles, css, libFiles } = readClassicFromCache(cacheDir);
-        const properties = parseProperties(widgetXml);
-        generateClassicGleamFile(widgetName, idMatch[1], properties);
-        classicWidgets.push({
-          name: widgetName,
-          safeId: toSafeIdentifier(widgetName),
-          widgetId: idMatch[1],
-          jsFiles, templateFiles, css, libFiles,
-        });
-        processedNames.add(widgetName);
+        for (const xmlFile of xmlFiles) {
+          const widgetXml = readFileSync(`${cacheDir}/${xmlFile}`, "utf-8");
+          const widgetName = parseWidgetName(widgetXml);
+          if (!widgetName || processedNames.has(widgetName)) continue;
+          const idMatch = widgetXml.match(/widget\s+[^>]*id="([^"]+)"/);
+          if (!idMatch) continue;
+
+          const properties = parseProperties(widgetXml);
+          generateClassicGleamFile(widgetName, idMatch[1], properties);
+          classicWidgets.push({
+            name: widgetName,
+            safeId: toSafeIdentifier(widgetName),
+            widgetId: idMatch[1],
+            jsFiles, templateFiles, css, libFiles,
+          });
+          processedNames.add(widgetName);
+        }
         continue;
       }
 
-      const mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
-      const cssFile = files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
-      const cssContent = cssFile ? readFileSync(`${cacheDir}/${cssFile}`) : null;
-
-      const xmlFile = files.find(f => f.endsWith(".xml") && f !== "package.xml");
-      let widgetName = dirName;
-      if (xmlFile) {
+      // Pluggable 위젯: 모든 XML을 순회하며 대응 MJS 매칭
+      for (const xmlFile of xmlFiles) {
         const widgetXml = readFileSync(`${cacheDir}/${xmlFile}`, "utf-8");
-        const parsed = parseWidgetName(widgetXml);
-        if (parsed) widgetName = parsed;
+        const widgetName = parseWidgetName(widgetXml);
+        if (!widgetName || processedNames.has(widgetName)) continue;
+
+        const xmlBase = xmlFile.replace(/\.xml$/, "");
+        const mjsFile = mjsFiles.find(f => f.replace(/\.mjs$/, "") === xmlBase)
+          || (xmlFiles.length === 1 ? mjsFiles[0] : null);
+        if (!mjsFile) continue;
+
+        const mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
+        const cssBase = xmlBase;
+        const cssFile = files.find(f => f.replace(/\.css$/, "") === cssBase && !f.includes("editorPreview"))
+          || files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
+        const cssContent = cssFile ? readFileSync(`${cacheDir}/${cssFile}`) : null;
+
         generateWidgetGleamFile(widgetName, widgetXml);
+        const safeId = toSafeIdentifier(widgetName);
+        widgets.push({ name: widgetName, safeId, mjsContent, cssContent });
+        processedNames.add(widgetName);
       }
 
-      const safeId = toSafeIdentifier(widgetName);
-      widgets.push({ name: widgetName, safeId, mjsContent, cssContent });
-      processedNames.add(widgetName);
+      // XML 없는 경우: dirName 기반 fallback (단일 위젯)
+      if (xmlFiles.length === 0 && mjsFiles.length > 0) {
+        const mjsFile = mjsFiles[0];
+        const mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
+        const cssFile = files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
+        const cssContent = cssFile ? readFileSync(`${cacheDir}/${cssFile}`) : null;
+        const safeId = toSafeIdentifier(dirName);
+        if (!processedNames.has(dirName)) {
+          widgets.push({ name: dirName, safeId, mjsContent, cssContent });
+          processedNames.add(dirName);
+        }
+      }
     }
   } catch {}
 

@@ -47,19 +47,14 @@ fn run_http_server(args: List(String)) -> Nil {
 fn ensure_apps_started() -> Nil
 
 /// Marketplace TUI 모드
-/// 인자: marketplace <project_root> <result_path>
+/// 인자: marketplace <project_root>
 fn run_marketplace(args: List(String)) -> Nil {
   ensure_apps_started()
   // Shore TUI 모드에서는 chrobot 로그가 화면을 망가뜨리므로 억제
   envoy.set("CHROBOT_LOG_LEVEL", "silent")
-  // "marketplace" 다음 인자들: project_root, result_path
   let project_root = case find_arg_after(args, "marketplace") {
     Some(path) -> path
     None -> "."
-  }
-  let result_path = case find_arg_after(args, project_root) {
-    Some(path) -> path
-    None -> project_root <> "/.marketplace-result.json"
   }
 
   // .env에서 PAT 읽기
@@ -74,7 +69,7 @@ fn run_marketplace(args: List(String)) -> Nil {
         <> "  필요한 scope: mx:marketplace-content:read",
       )
     }
-    Some(pat) -> marketplace.run(pat, project_root, result_path)
+    Some(pat) -> marketplace.run(pat, project_root)
   }
 }
 

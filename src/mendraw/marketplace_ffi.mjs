@@ -1,8 +1,8 @@
 // Mendix Marketplace TUI — sidecar 실행 스텁
 // 실제 TUI는 sidecar (Erlang, Shore) 에서 실행됨
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 // ── 사이드카 바이너리 탐색 ──
 
@@ -37,37 +37,21 @@ function getSidecarConfig() {
 export function run_marketplace_tui() {
   const config = getSidecarConfig();
   const projectRoot = resolve(".");
-  const resultPath = join(projectRoot, ".marketplace-result.json");
 
-  // stdio 모두 inherit — Shore TUI가 터미널 직접 접근 필요
   if (config.mode === "gleam") {
     spawnSync(
       "gleam",
-      ["run", "-m", config.module, "--", "marketplace", projectRoot, resultPath],
+      ["run", "-m", config.module, "--", "marketplace", projectRoot],
       { cwd: config.dir, stdio: "inherit" },
     );
   } else {
     spawnSync(
       "escript",
-      [config.path, "marketplace", projectRoot, resultPath],
+      [config.path, "marketplace", projectRoot],
       { stdio: "inherit" },
     );
   }
 
   // Shore TUI 종료 후 터미널 복원 (Ctrl+C 등 비정상 종료 대응)
   process.stdout.write("\x1b[?25h\x1b[?1049l");
-
-  // 결과 파일에서 JSON 읽기
-  try {
-    if (existsSync(resultPath)) {
-      const content = readFileSync(resultPath, "utf-8").trim();
-      try { unlinkSync(resultPath); } catch {}
-      return JSON.parse(content);
-    }
-  } catch {}
-  return { downloaded: [] };
-}
-
-export function result_downloaded_count(result) {
-  return result?.downloaded?.length || 0;
 }
