@@ -1131,6 +1131,28 @@ function generateClassicFfi(classicWidgets) {
 }
 
 // build/widgets/ 캐시에서 위젯 바인딩을 생성한다
+// Rewrite relative imports in widget .mjs that reference shared deps
+// e.g. from"../../../shared/charts/esm/shared-charts.mjs" → from"./shared-charts.mjs"
+function rewriteSharedImports(mjsContent, sharedFiles) {
+  if (!sharedFiles || sharedFiles.length === 0) return mjsContent;
+  let src = typeof mjsContent === "string" ? mjsContent : mjsContent.toString("utf8");
+  const sharedNames = new Set(sharedFiles.map(f => f.name));
+
+  // Match import paths like from"../../../anything/shared-charts.mjs"
+  // and rewrite to from"./shared-charts.mjs" if the basename is a known shared file
+  src = src.replace(/(from\s*["'])([^"']+)(["'])/g, (match, pre, importPath, post) => {
+    // Skip npm packages (no ./ or ../)
+    if (!importPath.startsWith(".")) return match;
+    const basename = importPath.split("/").pop();
+    if (sharedNames.has(basename)) {
+      return `${pre}./${basename}${post}`;
+    }
+    return match;
+  });
+
+  return Buffer.from(src, "utf8");
+}
+
 export function generate_widget_bindings() {
   const hasCacheDir = existsSync("build/widgets");
   if (!hasCacheDir) return;
@@ -1188,6 +1210,25 @@ export function generate_widget_bindings() {
       }
 
       // Pluggable 위젯: 모든 XML을 순회하며 대응 MJS 매칭
+      // Collect widget mjs filenames to distinguish from shared deps
+      const widgetMjsNames = new Set();
+      for (const xmlFile of xmlFiles) {
+        const xmlBase = xmlFile.replace(/\.xml$/, "");
+        const mjsFile = mjsFiles.find(f => f.replace(/\.mjs$/, "") === xmlBase)
+          || (xmlFiles.length === 1 ? mjsFiles[0] : null);
+        if (mjsFile) widgetMjsNames.add(mjsFile);
+      }
+
+      // Collect shared dependency files (non-widget .mjs/.css in cache dir)
+      const sharedFiles = [];
+      for (const f of files) {
+        if (f === "meta.toml" || f === "package.xml" || f.endsWith(".xml")) continue;
+        if (widgetMjsNames.has(f)) continue;
+        if (f.endsWith(".mjs") || f.endsWith(".css")) {
+          sharedFiles.push({ name: f, content: readFileSync(`${cacheDir}/${f}`) });
+        }
+      }
+
       for (const xmlFile of xmlFiles) {
         const widgetXml = readFileSync(`${cacheDir}/${xmlFile}`, "utf-8");
         const widgetName = parseWidgetName(widgetXml);
@@ -1198,7 +1239,11 @@ export function generate_widget_bindings() {
           || (xmlFiles.length === 1 ? mjsFiles[0] : null);
         if (!mjsFile) continue;
 
-        const mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
+        let mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
+        // Rewrite relative imports that reference shared deps
+        // e.g. from"../../../shared/charts/esm/shared-charts.mjs" → from"./shared-charts.mjs"
+        mjsContent = rewriteSharedImports(mjsContent, sharedFiles);
+
         const cssBase = xmlBase;
         const cssFile = files.find(f => f.replace(/\.css$/, "") === cssBase && !f.includes("editorPreview"))
           || files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
@@ -1206,7 +1251,7 @@ export function generate_widget_bindings() {
 
         generateWidgetGleamFile(widgetName, widgetXml);
         const safeId = toSafeIdentifier(widgetName);
-        widgets.push({ name: widgetName, safeId, mjsContent, cssContent });
+        widgets.push({ name: widgetName, safeId, mjsContent, cssContent, sharedFiles });
         processedNames.add(widgetName);
       }
 
@@ -1292,10 +1337,20 @@ export function generate_widget_bindings() {
           mkdirSync(widgetsDir, { recursive: true });
         }
 
+        const copiedShared = new Set();
         for (const w of widgets) {
           writeFileSync(`${widgetsDir}/${w.safeId}.mjs`, w.mjsContent);
           if (w.cssContent) {
             writeFileSync(`${widgetsDir}/${w.safeId}.css`, w.cssContent);
+          }
+          // Copy shared dependency files alongside widget files
+          if (w.sharedFiles) {
+            for (const sf of w.sharedFiles) {
+              if (!copiedShared.has(sf.name)) {
+                writeFileSync(`${widgetsDir}/${sf.name}`, sf.content);
+                copiedShared.add(sf.name);
+              }
+            }
           }
         }
 
