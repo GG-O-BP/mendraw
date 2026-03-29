@@ -12,6 +12,47 @@ function buildIdIndex(items) {
 // noop for mutation methods
 const noop = () => {};
 
+// Wrap a JS number in a Big.js-like object.
+// Mendix chart widgets call .toNumber() on Decimal/Integer/Long values.
+function wrapNumber(n) {
+  const num = typeof n === "number" ? n : Number(n);
+  return {
+    toNumber: () => num,
+    toFixed: (dp) => num.toFixed(dp !== undefined ? dp : 0),
+    toString: () => String(num),
+    valueOf: () => num,
+    // Big.js comparison methods used by some widgets
+    eq: (other) => num === (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other)),
+    gt: (other) => num > (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other)),
+    lt: (other) => num < (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other)),
+    gte: (other) => num >= (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other)),
+    lte: (other) => num <= (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other)),
+    plus: (other) => wrapNumber(num + (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other))),
+    minus: (other) => wrapNumber(num - (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other))),
+    times: (other) => wrapNumber(num * (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other))),
+    div: (other) => wrapNumber(num / (typeof other === "number" ? other : other?.toNumber?.() ?? Number(other))),
+    abs: () => wrapNumber(Math.abs(num)),
+    round: (dp, rm) => wrapNumber(Number(num.toFixed(dp || 0))),
+    cmp: (other) => {
+      const o = typeof other === "number" ? other : other?.toNumber?.() ?? Number(other);
+      return num > o ? 1 : num < o ? -1 : 0;
+    },
+  };
+}
+
+// Wrap value based on Mendix attribute type
+function wrapValue(rawVal, attrType) {
+  if (rawVal === undefined || rawVal === null) return rawVal;
+  if (attrType === "Decimal" || attrType === "Integer" || attrType === "Long" || attrType === "AutoNumber") {
+    return wrapNumber(rawVal);
+  }
+  if (attrType === "DateTime") {
+    // Chart widgets expect Date objects for DateTime attributes
+    return new Date(typeof rawVal === "number" ? rawVal : Number(rawVal));
+  }
+  return rawVal;
+}
+
 // === ObjectItem ===
 
 export function make_object_item(id) {
@@ -57,13 +98,18 @@ export function make_list_attribute(gleamItems, gleamValues, displayFn, attrType
   const values = gleamValues.toArray();
   const idIndex = buildIdIndex(items);
 
-  const formatFn = (v) =>
-    v !== undefined && v !== null ? displayFn(v) : "";
+  const formatFn = (v) => {
+    if (v === undefined || v === null) return "";
+    // Unwrap Big.js-like objects for display
+    const raw = v?.toNumber ? v.toNumber() : v;
+    return displayFn(raw);
+  };
 
   return {
     get: (item) => {
       const idx = idIndex.get(item.id);
-      const val = idx !== undefined ? values[idx] : undefined;
+      const rawVal = idx !== undefined ? values[idx] : undefined;
+      const val = wrapValue(rawVal, attrType);
       return {
         status: "available",
         value: val,
@@ -91,10 +137,15 @@ export function make_list_attribute(gleamItems, gleamValues, displayFn, attrType
   };
 }
 
-// === TextTemplate (static, no datasource binding) ===
+// === TextTemplate ===
+// Supports both direct .value access and .get(item) for list-bound contexts.
+// Chart widgets call .get(item) on textTemplates bound to a datasource.
 
 export function make_text_template(value) {
-  return { value };
+  return {
+    value,
+    get: () => ({ status: "available", value }),
+  };
 }
 
 // === ListExpressionValue / ListTextTemplate ===
@@ -153,6 +204,14 @@ export function make_association(gleamItems, gleamTargets) {
   };
 }
 
+// Helper: create a constant ListExpressionValue (returns same value for any item)
+// Used for chart color/tooltip properties that are expression-typed
+function makeConstantExpression(value) {
+  return {
+    get: () => ({ status: "available", value }),
+  };
+}
+
 // === Chart series config builders ===
 
 export function make_chart_series_static(
@@ -177,8 +236,9 @@ export function make_chart_series_static(
   };
   if (interpolation) series.interpolation = interpolation;
   if (lineStyle) series.lineStyle = lineStyle;
-  if (lineColor) series.staticLineColor = { status: "available", value: lineColor };
-  if (barColor) series.staticBarColor = { status: "available", value: barColor };
+  // Color properties are ListExpressionValue — chart widgets call .get(item) on them
+  if (lineColor) series.staticLineColor = makeConstantExpression(lineColor);
+  if (barColor) series.staticBarColor = makeConstantExpression(barColor);
   return series;
 }
 

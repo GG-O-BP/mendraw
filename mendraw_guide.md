@@ -33,6 +33,12 @@ Pluggable(React) 위젯과 Classic(Dojo) 위젯을 모두 지원한다.
   - [mendraw/interop](#mendrawinterop)
   - [mendraw/classic](#mendrawclassic)
   - [mendraw/marketplace](#mendrawmarketplace)
+- [외부 API 데이터를 Mendix 위젯에 전달 (Synthetic Data)](#외부-api-데이터를-mendix-위젯에-전달-synthetic-data)
+  - [개요](#synthetic-개요)
+  - [기본 사용법](#synthetic-기본-사용법)
+  - [차트 위젯에 사용하기](#차트-위젯에-사용하기)
+  - [DynamicDataGrid에 사용하기](#dynamicdatagrid에-사용하기)
+  - [API 레퍼런스 (synthetic)](#api-레퍼런스-synthetic)
 - [glendix 프로젝트에서 사용하기](#glendix-프로젝트에서-사용하기)
 - [문제 해결](#문제-해결)
 
@@ -607,6 +613,207 @@ Mendix Marketplace 위젯 검색·다운로드 TUI. `gleam run -m mendraw/market
 
 ---
 
+## 외부 API 데이터를 Mendix 위젯에 전달 (Synthetic Data)
+
+### Synthetic 개요
+
+Mendix 차트/그리드 위젯은 `ListValue`, `ObjectItem`, `ListAttributeValue` 등 Mendix 런타임에서만 생성되는 opaque 객체를 데이터 소스로 사용한다. `mendraw/synthetic` 모듈은 이 인터페이스를 모사하는 객체를 Gleam에서 직접 생성하여, 외부 API 데이터(CoinGecko, 날씨 API 등)를 Mendix Marketplace 위젯에 직접 전달할 수 있게 한다.
+
+지원하는 위젯 유형:
+- **Charts** (Line, Area, Bar, Column, Pie, Time Series, Heat Map, Bubble, Custom)
+- **Dynamic Data Grid** (3단계 cell/row/column 계층 포함)
+
+### Synthetic 기본 사용법
+
+```gleam
+import mendraw/synthetic
+import gleam/float
+
+// 1. ObjectItem 생성 — 데이터 행 수만큼
+let items = synthetic.object_items(3)  // synth_0, synth_1, synth_2
+
+// 2. ListValue 생성 — ObjectItem 목록을 감싸는 데이터 소스
+let lv = synthetic.list_value(items)
+
+// 3. ListAttributeValue 생성 — 각 아이템의 특정 필드값 + 표시 함수 + Mendix 타입
+let prices = [100.0, 200.0, 150.0]
+let price_attr = synthetic.list_attribute(items, prices, float.to_string, "Decimal")
+// price_attr.get(synth_0) → EditableValue { value: BigNumber(100.0), displayValue: "100.0" }
+
+// 4. TextTemplate 생성
+let static_name = synthetic.text_template("My Series")
+// chart에서 .value로 직접 접근하거나 .get(item)으로 접근 모두 지원
+
+// 5. List-bound TextTemplate — 아이템별 다른 텍스트
+let names = ["Bitcoin", "Ethereum", "Solana"]
+let name_tmpl = synthetic.list_text_template(items, names)
+// name_tmpl.get(synth_0) → { status: "available", value: "Bitcoin" }
+```
+
+**타입 래핑 규칙:**
+
+| Mendix 타입 | Gleam 값 | JS 래핑 |
+|---|---|---|
+| `"Decimal"`, `"Integer"`, `"Long"` | `Float` / `Int` | Big.js 호환 객체 (`.toNumber()`, `.toFixed()` 등) |
+| `"DateTime"` | `Float` (밀리초 타임스탬프) | `new Date(timestamp)` |
+| `"String"` | `String` | 그대로 전달 |
+
+### 차트 위젯에 사용하기
+
+Mendix 차트 위젯의 `lines`/`series` prop은 시리즈 설정 객체의 JS 배열을 기대한다.
+`chart_series_static()`으로 이 객체를 생성하고, `to_js_array()`로 Gleam List를 JS Array로 변환한다.
+
+#### Line Chart / Time Series 예시
+
+```gleam
+import mendraw/synthetic
+import mendraw/interop
+import mendraw/widget
+import redraw/dom/attribute
+import gleam/float
+
+let items = synthetic.object_items(100)
+let lv = synthetic.list_value(items)
+let x_attr = synthetic.list_attribute(items, timestamps, float.to_string, "DateTime")
+let y_attr = synthetic.list_attribute(items, prices, float.to_string, "Decimal")
+
+// 시리즈 설정 객체 생성
+let series = synthetic.chart_series_static(
+  lv, x_attr, y_attr,
+  synthetic.text_template("BTC Price"),
+  "none",     // aggregation: "none" | "count" | "sum" | "avg" ...
+  "linear",   // interpolation: "linear" | "spline"
+  "line",     // lineStyle: "line" | "lines+markers"
+  "",         // lineColor (빈 문자열 = 기본값)
+  "",         // barColor
+)
+
+let comp = widget.component("Line chart")
+interop.component_el(comp, [
+  attribute.attribute("lines", synthetic.to_js_array([series])),
+  attribute.attribute("showLegend", True),
+  attribute.attribute("gridLines", "horizontal"),
+  attribute.attribute("widthUnit", "percentage"),
+  attribute.attribute("width", 100),
+  attribute.attribute("heightUnit", "pixels"),
+  attribute.attribute("height", 400),
+], [])
+```
+
+Time Series 위젯도 동일한 구조이며, `showRangeSlider` prop을 추가하면 범위 슬라이더가 표시된다.
+
+#### Pie Chart 예시
+
+Pie Chart는 `seriesDataSource`, `seriesName`, `seriesValueAttribute`를 직접 전달한다 (시리즈 배열 없음).
+
+```gleam
+let items = synthetic.object_items(10)
+let lv = synthetic.list_value(items)
+let name_tmpl = synthetic.list_text_template(items, coin_names)
+let value_attr = synthetic.list_attribute(items, market_caps, float.to_string, "Decimal")
+
+let comp = widget.component("Pie chart")
+interop.component_el(comp, [
+  attribute.attribute("seriesDataSource", lv),
+  attribute.attribute("seriesName", name_tmpl),
+  attribute.attribute("seriesValueAttribute", value_attr),
+  attribute.attribute("showLegend", True),
+], [])
+```
+
+#### Column / Bar Chart 예시
+
+Column/Bar 차트는 Line Chart와 동일한 시리즈 구조를 사용하되, prop 키가 `"series"`이다.
+
+```gleam
+let series = synthetic.chart_series_static(
+  lv, x_attr, y_attr,
+  synthetic.text_template("Volume"),
+  "none", "", "", "", "#3b82f6",  // barColor 지정
+)
+
+let comp = widget.component("Column chart")
+interop.component_el(comp, [
+  attribute.attribute("series", synthetic.to_js_array([series])),
+  // ...
+], [])
+```
+
+### DynamicDataGrid에 사용하기
+
+DynamicDataGrid는 3단계 계층 구조를 사용한다:
+- **Row** — 행 (예: 각 코인)
+- **Column** — 열 (예: Price, Volume, Market Cap)
+- **Cell** — 행×열 교차점의 값 (N rows × M columns = N*M cells)
+
+Cell은 `referenceRow`와 `referenceColumn` association으로 자신이 속한 행/열을 참조한다.
+
+```gleam
+import mendraw/synthetic
+
+let num_rows = 20   // 코인 수
+let num_cols = 5    // 속성 수
+let num_cells = num_rows * num_cols
+
+let row_items = synthetic.object_items(num_rows)
+let col_items = synthetic.object_items(num_cols)
+let cell_items = synthetic.object_items(num_cells)
+
+// 데이터 소스
+let cell_source = synthetic.list_value(cell_items)
+let row_source = synthetic.list_value(row_items)
+let col_source = synthetic.list_value(col_items)
+
+// Cell→Row, Cell→Column 참조 (각 cell이 어느 행/열에 속하는지)
+let ref_row = synthetic.association(cell_items, cell_to_row_mapping)
+let ref_col = synthetic.association(cell_items, cell_to_col_mapping)
+
+// 표시 속성
+let cell_attr = synthetic.list_attribute(cell_items, cell_values, fn(s) { s }, "String")
+let row_attr = synthetic.list_attribute(row_items, row_names, fn(s) { s }, "String")
+let col_attr = synthetic.list_attribute(col_items, column_headers, fn(s) { s }, "String")
+
+let comp = widget.component("Dynamic data grid")
+interop.component_el(comp, [
+  attribute.attribute("dataSourceCell", cell_source),
+  attribute.attribute("dataSourceRow", row_source),
+  attribute.attribute("dataSourceColumn", col_source),
+  attribute.attribute("referenceRow", ref_row),
+  attribute.attribute("referenceColumn", ref_col),
+  attribute.attribute("showCellAs", "attribute"),
+  attribute.attribute("cellAttribute", cell_attr),
+  attribute.attribute("showRowAs", "attribute"),
+  attribute.attribute("rowAttribute", row_attr),
+  attribute.attribute("showHeaderAs", "attribute"),
+  attribute.attribute("headerAttribute", col_attr),
+  attribute.attribute("renderAs", "table"),
+], [])
+```
+
+### API 레퍼런스 (synthetic)
+
+#### 데이터 생성
+
+| 함수 | 시그니처 | 설명 |
+|------|----------|------|
+| `object_item` | `(String) -> ObjectItem` | 지정 id로 ObjectItem 생성 |
+| `object_items` | `(Int) -> List(ObjectItem)` | N개 ObjectItem 생성 (`synth_0`, `synth_1`, ...) |
+| `list_value` | `(List(ObjectItem)) -> ListValue` | ObjectItem 목록을 ListValue로 래핑 |
+| `list_attribute` | `(List(ObjectItem), List(a), fn(a) -> String, String) -> ListAttributeValue` | 아이템별 속성값 + 표시함수 + Mendix 타입 |
+| `text_template` | `(String) -> a` | 정적 텍스트 템플릿 (`.value` + `.get()` 양쪽 지원) |
+| `list_text_template` | `(List(ObjectItem), List(String)) -> ListExpressionValue` | 아이템별 텍스트 템플릿 |
+| `list_expression` | `(List(ObjectItem), List(a)) -> ListExpressionValue` | 아이템별 표현식 값 |
+| `association` | `(List(ObjectItem), List(ObjectItem)) -> a` | 소스→타겟 연관 관계 |
+
+#### 차트 시리즈
+
+| 함수 | 시그니처 | 설명 |
+|------|----------|------|
+| `chart_series_static` | `(ListValue, ListAttributeValue, ListAttributeValue, a, String, String, String, String, String) -> b` | 정적 차트 시리즈 설정 객체 생성 (dataSource, x, y, name, aggregation, interpolation, lineStyle, lineColor, barColor) |
+| `to_js_array` | `(List(a)) -> b` | Gleam List → JS Array 변환 |
+
+---
+
 ## glendix 프로젝트에서 사용하기
 
 [glendix](https://github.com/) 프로젝트에서 mendraw를 의존성으로 추가하면,
@@ -660,6 +867,23 @@ install을 실행하지 않고 위젯 모듈을 import하면 이 에러가 발�
 - Classic 위젯은 DOM 컨테이너를 생성하고 imperative하게 마운트한다
 - `classic_ffi.mjs`가 빌드 경로에 정상적으로 생성되었는지 확인
 - `widget_id`가 정확한지 확인 (예: `"CameraWidget.widget.CameraWidget"`)
+
+### Synthetic 데이터 차트에서 `toNumber is not a function` 에러
+
+차트 위젯은 Decimal 값에 Big.js의 `.toNumber()` 메서드를 호출한다.
+`list_attribute`의 `attr_type` 파라미터가 `"Decimal"`, `"Integer"`, `"Long"` 중 하나인지 확인한다.
+해당 타입으로 지정하면 synthetic 모듈이 자동으로 Big.js 호환 객체로 래핑한다.
+
+### Synthetic 데이터 차트에서 `get is not a function` 에러
+
+차트 위젯이 `staticName` 등 textTemplate 속성에서 `.get(item)` 메서드를 호출한다.
+`synthetic.text_template()`은 `.get()` 메서드를 포함하므로 정상 동작해야 한다.
+커스텀 JS 객체를 직접 전달하는 경우 `.get(item)` 메서드가 있는지 확인한다.
+
+### Chart 위젯의 shared-charts.mjs 경로 에러
+
+`Could not resolve "../../../shared/charts/esm/shared-charts.mjs"` 에러가 발생하면
+`gleam run -m mendraw/install`을 다시 실행한다. mendraw가 자동으로 공유 의존성 파일을 복사하고 import 경로를 재작성한다.
 
 ### Pluggable 위젯과 Classic 위젯을 구분하는 기준
 

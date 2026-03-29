@@ -117,6 +117,42 @@ let cond = filter.and_([
 list_value.set_filter(data_source, option.Some(cond))
 ```
 
+### 6. 외부 API 데이터를 Mendix 위젯에 전달 (Synthetic Data)
+
+Mendix 런타임 없이도 외부 API 데이터를 Mendix 차트/그리드 위젯에 직접 전달할 수 있다.
+`mendraw/synthetic` 모듈이 Mendix `ListValue`, `ObjectItem`, `ListAttributeValue` 인터페이스를 모사하는 객체를 생성한다.
+
+```gleam
+import mendraw/synthetic
+import mendraw/interop
+import mendraw/widget
+import redraw/dom/attribute
+import gleam/float
+
+// 1. 데이터 준비
+let prices = [100.0, 105.5, 98.3, 110.2]
+let items = synthetic.object_items(4)
+
+// 2. Mendix 호환 객체 생성
+let lv = synthetic.list_value(items)
+let x_attr = synthetic.list_attribute(items, [1.0, 2.0, 3.0, 4.0], float.to_string, "Decimal")
+let y_attr = synthetic.list_attribute(items, prices, float.to_string, "Decimal")
+
+// 3. 차트 시리즈 구성
+let series = synthetic.chart_series_static(
+  lv, x_attr, y_attr,
+  synthetic.text_template("Price"),
+  "none", "linear", "line", "", "",
+)
+
+// 4. Mendix Line chart 위젯에 전달
+let comp = widget.component("Line chart")
+interop.component_el(comp, [
+  attribute.attribute("lines", synthetic.to_js_array([series])),
+  attribute.attribute("showLegend", True),
+], [])
+```
+
 ### 5. Marketplace에서 위젯 다운로드
 
 Mendix Marketplace에서 위젯을 검색하고 다운로드할 수 있는 TUI를 제공한다.
@@ -149,6 +185,7 @@ PAT는 Mendix Portal → Settings → Personal Access Tokens에서 발급한다 
 | `mendraw/interop` | `JsComponent` → redraw `Element` 브릿지 (`component_el`, `component_el_`, `void_component_el`) |
 | `mendraw/widget` | 위젯 컴포넌트 조회 + prop 래핑 (`prop`, `editable_prop`, `action_prop`) |
 | `mendraw/classic` | Classic(Dojo) 위젯 React 래퍼 (`render`, `render_with_class`) |
+| `mendraw/synthetic` | 외부 API 데이터 → Mendix 위젯 호환 객체 생성 (`list_value`, `list_attribute`, `chart_series_static` 등) |
 
 ### Mendix 타입 (`mendraw/mendix/*`)
 
