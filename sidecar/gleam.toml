@@ -1,5 +1,6 @@
 name = "mendraw_sidecar"
 version = "1.0.0"
+gleam = ">= 1.17.0"
 target = "erlang"
 description = "HTTP sidecar for mendraw Marketplace browser automation"
 licences = ["BlueOak-1.0.0"]

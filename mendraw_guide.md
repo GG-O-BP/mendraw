@@ -46,7 +46,7 @@ Pluggable(React) 위젯과 Classic(Dojo) 위젯을 모두 지원한다.
 
 ## 사전 준비
 
-- [Gleam](https://gleam.run/) v1.15 이상
+- [Gleam](https://gleam.run/) v1.17.0 이상
 - [Erlang/OTP](https://www.erlang.org/) 28 이상
 - Gleam 프로젝트의 타겟이 `javascript`여야 한다 (`gleam.toml`의 `target = "javascript"`)
 - [redraw](https://hexdocs.pm/redraw/) 기반 UI 프로젝트

@@ -1,5 +1,6 @@
 name = "mendraw"
 version = "1.2.1"
+gleam = ">= 1.17.0"
 target = "javascript"
 description = "Mendix widget MPK file bindings for Gleam, compatible with redraw"
 licences = ["BlueOak-1.0.0"]
