@@ -1,21 +1,43 @@
-// Mendix Reference 타입 — 단일 연관 관계 값
+//// Provides typed access to Mendix reference values.
+////
 
-import gleam/option.{type Option}
+import gleam/option
 
+/// A typed `ReferenceValue` value used by the reference capability.
 pub type ReferenceValue
 
-/// 참조 값 (없으면 None)
+/// Returns the referenced value.
+pub fn value(ref ref: ReferenceValue) -> option.Option(a) {
+  value_raw(ref)
+}
+
+/// Sets the value.
+pub fn set_value(
+  ref ref: ReferenceValue,
+  value value: option.Option(a),
+) -> Nil {
+  set_value_raw(ref, value)
+}
+
+/// Reads the only.
+pub fn read_only(ref ref: ReferenceValue) -> Bool {
+  read_only_raw(ref)
+}
+
+/// Returns the current validation message.
+pub fn validation(ref ref: ReferenceValue) -> option.Option(String) {
+  validation_raw(ref)
+}
+
+// -- FFI --
 @external(javascript, "../mendix_ffi.mjs", "get_modifiable_value")
-pub fn value(ref: ReferenceValue) -> Option(a)
+fn value_raw(ref ref: ReferenceValue) -> option.Option(a)
 
-/// 참조 설정 (None → 참조 해제)
 @external(javascript, "../mendix_ffi.mjs", "modifiable_set_value")
-pub fn set_value(ref: ReferenceValue, value: Option(a)) -> Nil
+fn set_value_raw(ref ref: ReferenceValue, value value: option.Option(a)) -> Nil
 
-/// 읽기 전용 여부
 @external(javascript, "../mendix_ffi.mjs", "get_modifiable_read_only")
-pub fn read_only(ref: ReferenceValue) -> Bool
+fn read_only_raw(ref ref: ReferenceValue) -> Bool
 
-/// 유효성 검사 메시지 (없으면 None)
 @external(javascript, "../mendix_ffi.mjs", "get_modifiable_validation")
-pub fn validation(ref: ReferenceValue) -> Option(String)
+fn validation_raw(ref ref: ReferenceValue) -> option.Option(String)

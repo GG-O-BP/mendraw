@@ -1,41 +1,48 @@
-// Mendix ActionValue 타입 — 실행 가능한 액션 (마이크로플로우, 나노플로우 등)
+//// Provides typed access to Mendix action values.
+////
 
-import gleam/option.{type Option, None, Some}
+import gleam/option
 
-// === 타입 ===
-
+/// A typed `ActionValue` value used by the action capability.
 pub type ActionValue
 
-// === 접근자 ===
+/// Reports whether the action can currently execute.
+pub fn can_execute(action action: ActionValue) -> Bool {
+  can_execute_raw(action)
+}
 
-/// 실행 가능 여부
-@external(javascript, "../mendix_ffi.mjs", "get_action_can_execute")
-pub fn can_execute(action: ActionValue) -> Bool
+/// Reports whether the action is currently executing.
+pub fn is_executing(action action: ActionValue) -> Bool {
+  is_executing_raw(action)
+}
 
-/// 현재 실행 중인지 여부
-@external(javascript, "../mendix_ffi.mjs", "get_action_is_executing")
-pub fn is_executing(action: ActionValue) -> Bool
+/// Executes the action.
+pub fn execute(action action: ActionValue) -> Nil {
+  execute_raw(action)
+}
 
-// === 메서드 ===
-
-/// 액션 실행
-@external(javascript, "../mendix_ffi.mjs", "action_execute")
-pub fn execute(action: ActionValue) -> Nil
-
-// === 편의 함수 (순수 Gleam) ===
-
-/// 실행 가능할 때만 실행
-pub fn execute_if_can(action: ActionValue) -> Nil {
+/// Executes the action only when it is enabled.
+pub fn execute_if_can(action action: ActionValue) -> Nil {
   case can_execute(action) {
     True -> execute(action)
     False -> Nil
   }
 }
 
-/// Option(ActionValue)를 받아 실행 가능하면 실행
-pub fn execute_action(action: Option(ActionValue)) -> Nil {
+/// Executes an optional action when present and enabled.
+pub fn execute_action(action action: option.Option(ActionValue)) -> Nil {
   case action {
-    Some(a) -> execute_if_can(a)
-    None -> Nil
+    option.Some(a) -> execute_if_can(a)
+    option.None -> Nil
   }
 }
+
+// -- FFI --
+@external(javascript, "../mendix_ffi.mjs", "get_action_can_execute")
+fn can_execute_raw(action action: ActionValue) -> Bool
+
+@external(javascript, "../mendix_ffi.mjs", "get_action_is_executing")
+fn is_executing_raw(action action: ActionValue) -> Bool
+
+@external(javascript, "../mendix_ffi.mjs", "action_execute")
+fn execute_raw(action action: ActionValue) -> Nil

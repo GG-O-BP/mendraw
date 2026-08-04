@@ -1,34 +1,51 @@
-// Mendix FileValue / WebImage 타입 — 파일 및 이미지 속성
-// FileValue: 일반 파일, WebImage: 이미지 (altText 추가)
+//// Provides typed access to Mendix file and image values.
+////
 
-import gleam/option.{type Option}
+import gleam/option
 
-// === 타입 ===
-
+/// A typed `FileValue` value used by the file capability.
 pub type FileValue
 
+/// A typed `WebImage` value used by the file capability.
 pub type WebImage
 
-// === FileValue 접근자 ===
+/// Returns the file URI.
+pub fn uri(f f: FileValue) -> String {
+  uri_raw(f)
+}
 
-/// 파일 URI
+/// Returns the file name when available.
+pub fn name(f f: FileValue) -> option.Option(String) {
+  name_raw(f)
+}
+
+/// Returns the image URI.
+pub fn image_uri(img img: WebImage) -> String {
+  image_uri_raw(img)
+}
+
+/// Returns the image file name when available.
+pub fn image_name(img img: WebImage) -> option.Option(String) {
+  image_name_raw(img)
+}
+
+/// Returns the image alternative text when available.
+pub fn alt_text(img img: WebImage) -> option.Option(String) {
+  alt_text_raw(img)
+}
+
+// -- FFI --
 @external(javascript, "../mendix_ffi.mjs", "get_file_uri")
-pub fn uri(f: FileValue) -> String
+fn uri_raw(f f: FileValue) -> String
 
-/// 파일 이름 (없으면 None)
 @external(javascript, "../mendix_ffi.mjs", "get_file_name")
-pub fn name(f: FileValue) -> Option(String)
+fn name_raw(f f: FileValue) -> option.Option(String)
 
-// === WebImage 접근자 (FileValue 확장) ===
-
-/// 이미지 URI
 @external(javascript, "../mendix_ffi.mjs", "get_file_uri")
-pub fn image_uri(img: WebImage) -> String
+fn image_uri_raw(img img: WebImage) -> String
 
-/// 이미지 파일 이름 (없으면 None)
 @external(javascript, "../mendix_ffi.mjs", "get_file_name")
-pub fn image_name(img: WebImage) -> Option(String)
+fn image_name_raw(img img: WebImage) -> option.Option(String)
 
-/// 이미지 대체 텍스트 (없으면 None)
 @external(javascript, "../mendix_ffi.mjs", "get_image_alt_text")
-pub fn alt_text(img: WebImage) -> Option(String)
+fn alt_text_raw(img img: WebImage) -> option.Option(String)

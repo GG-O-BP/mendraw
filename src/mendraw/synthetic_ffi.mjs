@@ -1,17 +1,14 @@
 // Synthetic Mendix data objects — fake ListValue/ObjectItem/ListAttributeValue
 // for feeding external API data into Mendix chart/grid widgets
 import { toList } from "../gleam.mjs";
-
 // id -> index mapping for O(1) lookup
 function buildIdIndex(items) {
   const map = new Map();
   items.forEach((item, i) => map.set(item.id, i));
   return map;
 }
-
 // noop for mutation methods
 const noop = () => {};
-
 // Wrap a JS number in a Big.js-like object.
 // Mendix chart widgets call .toNumber() on Decimal/Integer/Long values.
 function wrapNumber(n) {
@@ -39,7 +36,6 @@ function wrapNumber(n) {
     },
   };
 }
-
 // Wrap value based on Mendix attribute type
 function wrapValue(rawVal, attrType) {
   if (rawVal === undefined || rawVal === null) return rawVal;
@@ -52,13 +48,10 @@ function wrapValue(rawVal, attrType) {
   }
   return rawVal;
 }
-
-// === ObjectItem ===
-
+// -- Objectitem --
 export function make_object_item(id) {
   return { id };
 }
-
 export function make_object_items(count) {
   const items = [];
   for (let i = 0; i < count; i++) {
@@ -66,10 +59,8 @@ export function make_object_items(count) {
   }
   return toList(items);
 }
-
-// === ListValue ===
+// -- Listvalue --
 // items stored as JS Array (chart widgets iterate with for-of and access .length)
-
 export function make_list_value(gleamItems) {
   const items = gleamItems.toArray();
   return {
@@ -89,22 +80,18 @@ export function make_list_value(gleamItems) {
     requestTotalCount: noop,
   };
 }
-
-// === ListAttributeValue ===
+// -- Listattributevalue --
 // .get(item) returns EditableValue-shaped object
-
 export function make_list_attribute(gleamItems, gleamValues, displayFn, attrType) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
   const idIndex = buildIdIndex(items);
-
   const formatFn = (v) => {
     if (v === undefined || v === null) return "";
     // Unwrap Big.js-like objects for display
     const raw = v?.toNumber ? v.toNumber() : v;
     return displayFn(raw);
   };
-
   return {
     get: (item) => {
       const idx = idIndex.get(item.id);
@@ -136,26 +123,21 @@ export function make_list_attribute(gleamItems, gleamValues, displayFn, attrType
     },
   };
 }
-
-// === TextTemplate ===
+// -- Texttemplate --
 // Supports both direct .value access and .get(item) for list-bound contexts.
 // Chart widgets call .get(item) on textTemplates bound to a datasource.
-
 export function make_text_template(value) {
   return {
     value,
     get: () => ({ status: "available", value }),
   };
 }
-
-// === ListExpressionValue / ListTextTemplate ===
+// -- Listexpressionvalue / Listtexttemplate --
 // .get(item) returns { status, value }
-
 export function make_list_text_template(gleamItems, gleamValues) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
   const idIndex = buildIdIndex(items);
-
   return {
     get: (item) => {
       const idx = idIndex.get(item.id);
@@ -166,12 +148,10 @@ export function make_list_text_template(gleamItems, gleamValues) {
     },
   };
 }
-
 export function make_list_expression(gleamItems, gleamValues) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
   const idIndex = buildIdIndex(items);
-
   return {
     get: (item) => {
       const idx = idIndex.get(item.id);
@@ -182,14 +162,11 @@ export function make_list_expression(gleamItems, gleamValues) {
     },
   };
 }
-
-// === Association (for DynamicDataGrid cell→row/cell→column references) ===
-
+// -- Association (for Dynamicdatagrid Cell→row/cell→column References) --
 export function make_association(gleamItems, gleamTargets) {
   const items = gleamItems.toArray();
   const targets = gleamTargets.toArray();
   const idIndex = buildIdIndex(items);
-
   return {
     get: (item) => {
       const idx = idIndex.get(item.id);
@@ -203,7 +180,6 @@ export function make_association(gleamItems, gleamTargets) {
     },
   };
 }
-
 // Helper: create a constant ListExpressionValue (returns same value for any item)
 // Used for chart color/tooltip properties that are expression-typed
 function makeConstantExpression(value) {
@@ -211,9 +187,7 @@ function makeConstantExpression(value) {
     get: () => ({ status: "available", value }),
   };
 }
-
-// === Chart series config builders ===
-
+// -- Chart Series Config Builders --
 export function make_chart_series_static(
   dataSource,
   xAttr,
@@ -241,9 +215,7 @@ export function make_chart_series_static(
   if (barColor) series.staticBarColor = makeConstantExpression(barColor);
   return series;
 }
-
-// === Utility ===
-
+// -- Utility --
 export function to_js_array(gleamList) {
   return gleamList.toArray();
 }

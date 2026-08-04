@@ -1,18 +1,43 @@
-// Mendix ValueFormatter 타입 — 값 포맷팅/파싱
-// 사용: EditableValue, ListAttributeValue 등의 포매터
+//// Formats and parses values through a Mendix value formatter handle.
+////
 
-import gleam/option.{type Option}
+import gleam/option
+import gleam/result
 
-// === 타입 ===
-
+/// A typed `ValueFormatter` value used by the formatter capability.
 pub type ValueFormatter
 
-// === 메서드 ===
+/// Describes a value that a Mendix formatter rejected.
+pub type ParseError {
+  /// The formatter could not interpret the supplied text.
+  InvalidFormattedValue(input: String)
+}
 
-/// 값을 표시 문자열로 포맷팅 (None → 빈 값 포맷)
+/// Formats an optional value for display.
+pub fn format(
+  fmt fmt: ValueFormatter,
+  value value: option.Option(a),
+) -> String {
+  format_raw(fmt, value)
+}
+
+/// Parses user-facing text through the Mendix formatter.
+pub fn parse(
+  fmt fmt: ValueFormatter,
+  text text: String,
+) -> Result(option.Option(a), ParseError) {
+  parse_raw(fmt, text)
+  |> result.map_error(fn(_reason) { InvalidFormattedValue(input: text) })
+}
+
+type RawParseError
+
+// -- FFI --
 @external(javascript, "../mendix_ffi.mjs", "formatter_format")
-pub fn format(fmt: ValueFormatter, value: Option(a)) -> String
+fn format_raw(fmt fmt: ValueFormatter, value value: option.Option(a)) -> String
 
-/// 문자열을 값으로 파싱 (실패 시 Error(Nil))
 @external(javascript, "../mendix_ffi.mjs", "formatter_parse")
-pub fn parse(fmt: ValueFormatter, text: String) -> Result(Option(a), Nil)
+fn parse_raw(
+  fmt fmt: ValueFormatter,
+  text text: String,
+) -> Result(option.Option(a), RawParseError)

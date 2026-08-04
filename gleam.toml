@@ -1,9 +1,10 @@
 name = "mendraw"
-version = "1.2.1"
+version = "2.0.0"
 gleam = ">= 1.17.0"
 target = "javascript"
-description = "Mendix widget MPK file bindings for Gleam, compatible with redraw"
+description = "Typed Mendix client values and bindings for installed MPK widget assets"
 licences = ["BlueOak-1.0.0"]
+repository = { type = "github", user = "glendix-labs", repo = "mendraw" }
 
 [javascript]
 typescript_declarations = false
@@ -11,10 +12,8 @@ runtime = "node"
 
 [dependencies]
 gleam_stdlib = ">= 1.0.3 and < 2.0.0"
-gleam_javascript = ">= 1.0.1 and < 2.0.0"
 redraw = ">= 19.2.2 and < 20.0.0"
 redraw_dom = ">= 19.2.2 and < 20.0.0"
-etch = ">= 1.4.0 and < 2.0.0"
 
 [dev_dependencies]
 gleeunit = ">= 1.11.0 and < 2.0.0"

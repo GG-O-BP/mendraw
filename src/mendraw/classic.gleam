@@ -1,35 +1,84 @@
-//// Classic (Dojo 기반) Mendix 위젯을 React 내부에서 사용한다.
-//// build/widgets/ 캐시의 Classic .mpk 위젯을 DOM 컨테이너에 임페러티브하게 마운트한다.
-//// gleam run -m mendraw/install 실행 시 바인딩이 자동 생성된다.
+//// Resolves generated classic Mendix widget bindings.
 ////
 //// ```gleam
 //// import mendraw/classic
 ////
-//// classic.render("CameraWidget.widget.CameraWidget", [
-////   #("mfToExecute", classic.to_dynamic(mf_value)),
-////   #("preferRearCamera", classic.to_dynamic(true)),
-//// ])
+//// classic.render(
+////   "CameraWidget.widget.CameraWidget",
+////   [
+////     #("mfToExecute", classic.to_value(mf_value)),
+////     #("preferRearCamera", classic.to_value(true)),
+////   ],
+//// )
 //// ```
 
-import gleam/dynamic.{type Dynamic}
-import redraw.{type Element}
+import gleam/result
+import redraw
 
-/// 임의의 값을 Dynamic으로 변환한다 (JS 타겟에서는 identity)
-@external(javascript, "./classic_ffi.mjs", "to_dynamic")
-pub fn to_dynamic(value: a) -> Dynamic
+/// Represents a JavaScript value passed to a classic Mendix widget.
+pub type ClassicValue
 
-/// Classic 위젯을 React 엘리먼트로 렌더링하는 편의 함수
-/// DOM 컨테이너를 자동 생성하고, useEffect로 마운트/언마운트를 관리한다
-@external(javascript, "./classic_ffi.mjs", "classic_widget_element")
+/// Describes a classic widget-binding lookup or render failure.
+pub type ClassicError {
+  /// The requested classic widget is not registered in the generated binding table.
+  ClassicWidgetWasNotFound(widget_id: String, reason: String)
+}
+
+/// Converts a Gleam value into a classic-widget property value.
+pub fn to_value(value value: a) -> ClassicValue {
+  to_value_raw(value)
+}
+
+/// Renders a classic Mendix widget with typed properties.
 pub fn render(
-  widget_id: String,
-  properties: List(#(String, Dynamic)),
-) -> Element
+  widget_id widget_id: String,
+  properties properties: List(#(String, ClassicValue)),
+) -> Result(redraw.Element, ClassicError) {
+  render_raw(widget_id, properties)
+  |> map_render_error(widget_id)
+}
 
-/// CSS 클래스를 지정하여 렌더링
-@external(javascript, "./classic_ffi.mjs", "classic_widget_element_with_class")
+/// Renders a classic Mendix widget with a CSS class.
 pub fn render_with_class(
+  widget_id widget_id: String,
+  properties properties: List(#(String, ClassicValue)),
+  class_name class_name: String,
+) -> Result(redraw.Element, ClassicError) {
+  render_with_class_raw(widget_id, properties, class_name)
+  |> map_render_error(widget_id)
+}
+
+type RawClassicError
+
+fn map_render_error(
+  raw_result: Result(redraw.Element, RawClassicError),
   widget_id: String,
-  properties: List(#(String, Dynamic)),
-  class_name: String,
-) -> Element
+) -> Result(redraw.Element, ClassicError) {
+  raw_result
+  |> result.map_error(fn(error) {
+    ClassicWidgetWasNotFound(
+      widget_id: widget_id,
+      reason: raw_classic_error_message(error),
+    )
+  })
+}
+
+// -- FFI --
+@external(javascript, "./classic_ffi.mjs", "to_dynamic")
+fn to_value_raw(value value: a) -> ClassicValue
+
+@external(javascript, "./classic_ffi.mjs", "classic_widget_element")
+fn render_raw(
+  widget_id widget_id: String,
+  properties properties: List(#(String, ClassicValue)),
+) -> Result(redraw.Element, RawClassicError)
+
+@external(javascript, "./classic_ffi.mjs", "classic_widget_element_with_class")
+fn render_with_class_raw(
+  widget_id widget_id: String,
+  properties properties: List(#(String, ClassicValue)),
+  class_name class_name: String,
+) -> Result(redraw.Element, RawClassicError)
+
+@external(javascript, "./classic_ffi.mjs", "classic_error_message")
+fn raw_classic_error_message(error: RawClassicError) -> String

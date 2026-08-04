@@ -1,73 +1,110 @@
-// Mendix EditableValue 타입 — 편집 가능한 값의 접근자와 메서드
-// 사용: 텍스트, 숫자, 날짜 등 Mendix 속성 편집
+//// Provides typed access to Mendix editable values.
+////
 
-import gleam/option.{type Option}
-import mendraw/mendix.{type ValueStatus}
-import mendraw/mendix/formatter.{type ValueFormatter}
+import gleam/option
+import mendraw/mendix
+import mendraw/mendix/formatter
 
-// === 타입 ===
-
+/// A typed `EditableValue` value used by the editable value capability.
 pub type EditableValue
 
-// === 접근자 ===
-
-@external(javascript, "../mendix_ffi.mjs", "get_status")
-fn get_status_raw(ev: EditableValue) -> String
-
-/// 현재 상태 (Available, Loading, Unavailable)
-pub fn status(ev: EditableValue) -> ValueStatus {
+/// Returns the editable value loading status.
+pub fn status(ev ev: EditableValue) -> mendix.ValueStatus {
   mendix.to_value_status(get_status_raw(ev))
 }
 
-/// 현재 값 (undefined → None)
-@external(javascript, "../mendix_ffi.mjs", "get_editable_value")
-pub fn value(ev: EditableValue) -> Option(a)
+/// Returns the current editable value when available.
+pub fn value(ev ev: EditableValue) -> option.Option(a) {
+  value_raw(ev)
+}
 
-/// 읽기 전용 여부
-@external(javascript, "../mendix_ffi.mjs", "get_editable_read_only")
-pub fn read_only(ev: EditableValue) -> Bool
+/// Reports whether the value is read-only.
+pub fn read_only(ev ev: EditableValue) -> Bool {
+  read_only_raw(ev)
+}
 
-/// 유효성 검사 메시지 (없으면 None)
-@external(javascript, "../mendix_ffi.mjs", "get_editable_validation")
-pub fn validation(ev: EditableValue) -> Option(String)
+/// Returns the current validation message.
+pub fn validation(ev ev: EditableValue) -> option.Option(String) {
+  validation_raw(ev)
+}
 
-/// 표시용 문자열 (포맷팅 적용된 값)
-@external(javascript, "../mendix_ffi.mjs", "get_editable_display_value")
-pub fn display_value(ev: EditableValue) -> String
+/// Returns the current display text.
+pub fn display_value(ev ev: EditableValue) -> String {
+  display_value_raw(ev)
+}
 
-/// 값 포매터
-@external(javascript, "../mendix_ffi.mjs", "get_editable_formatter")
-pub fn formatter(ev: EditableValue) -> ValueFormatter
+/// Returns the value formatter.
+pub fn formatter(ev ev: EditableValue) -> formatter.ValueFormatter {
+  formatter_raw(ev)
+}
 
-/// 가능한 값 목록 (열거형 속성 등)
-@external(javascript, "../mendix_ffi.mjs", "get_editable_universe")
-pub fn universe(ev: EditableValue) -> Option(List(a))
+/// Returns the allowed value universe when available.
+pub fn universe(ev ev: EditableValue) -> option.Option(List(a)) {
+  universe_raw(ev)
+}
 
-// === 메서드 ===
+/// Sets the value.
+pub fn set_value(ev ev: EditableValue, value value: option.Option(a)) -> Nil {
+  set_value_raw(ev, value)
+}
 
-/// 값 설정 (None → undefined 전달)
-@external(javascript, "../mendix_ffi.mjs", "editable_set_value")
-pub fn set_value(ev: EditableValue, value: Option(a)) -> Nil
+/// Sets the text value.
+pub fn set_text_value(ev ev: EditableValue, text text: String) -> Nil {
+  set_text_value_raw(ev, text)
+}
 
-/// 텍스트 값 직접 설정 (파싱은 Mendix가 처리)
-@external(javascript, "../mendix_ffi.mjs", "editable_set_text_value")
-pub fn set_text_value(ev: EditableValue, text: String) -> Nil
-
-/// 유효성 검사기 설정 (None → 검사기 제거)
-@external(javascript, "../mendix_ffi.mjs", "editable_set_validator")
+/// Sets the validator.
 pub fn set_validator(
-  ev: EditableValue,
-  validator: Option(fn(Option(a)) -> Option(String)),
-) -> Nil
+  ev ev: EditableValue,
+  validator validator: option.Option(
+    fn(option.Option(a)) -> option.Option(String),
+  ),
+) -> Nil {
+  set_validator_raw(ev, validator)
+}
 
-// === 편의 함수 (순수 Gleam) ===
-
-/// 값이 사용 가능한지 확인
-pub fn is_available(ev: EditableValue) -> Bool {
+/// Reports whether the editable value is available.
+pub fn is_available(ev ev: EditableValue) -> Bool {
   status(ev) == mendix.Available
 }
 
-/// 편집 가능한 상태인지 확인 (사용 가능 + 읽기 전용 아님)
-pub fn is_editable(ev: EditableValue) -> Bool {
+/// Reports whether the value is available and writable.
+pub fn is_editable(ev ev: EditableValue) -> Bool {
   is_available(ev) && !read_only(ev)
 }
+
+// -- FFI --
+@external(javascript, "../mendix_ffi.mjs", "get_status")
+fn get_status_raw(ev: EditableValue) -> String
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_value")
+fn value_raw(ev ev: EditableValue) -> option.Option(a)
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_read_only")
+fn read_only_raw(ev ev: EditableValue) -> Bool
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_validation")
+fn validation_raw(ev ev: EditableValue) -> option.Option(String)
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_display_value")
+fn display_value_raw(ev ev: EditableValue) -> String
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_formatter")
+fn formatter_raw(ev ev: EditableValue) -> formatter.ValueFormatter
+
+@external(javascript, "../mendix_ffi.mjs", "get_editable_universe")
+fn universe_raw(ev ev: EditableValue) -> option.Option(List(a))
+
+@external(javascript, "../mendix_ffi.mjs", "editable_set_value")
+fn set_value_raw(ev ev: EditableValue, value value: option.Option(a)) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "editable_set_text_value")
+fn set_text_value_raw(ev ev: EditableValue, text text: String) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "editable_set_validator")
+fn set_validator_raw(
+  ev ev: EditableValue,
+  validator validator: option.Option(
+    fn(option.Option(a)) -> option.Option(String),
+  ),
+) -> Nil

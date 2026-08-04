@@ -26,3 +26,8 @@ Desktop.ini
 .idea/
 .vscode/
 .claude/
+
+# Glendix Family workspace links
+/.agents/
+/.codex/
+/AGENTS.md

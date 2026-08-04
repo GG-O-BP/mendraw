@@ -1,31 +1,60 @@
-// Mendix Selection 타입 — 단일/다중 선택
-// 사용: 데이터 그리드 선택, 리스트 선택 등
+//// Provides typed access to Mendix selection values.
+////
 
-import gleam/option.{type Option}
-import mendraw/mendix.{type ObjectItem}
+import gleam/option
+import mendraw/mendix
 
-// === 타입 ===
-
+/// A typed `SelectionSingleValue` value used by the selection capability.
 pub type SelectionSingleValue
 
+/// A typed `SelectionMultiValue` value used by the selection capability.
 pub type SelectionMultiValue
 
-// === 단일 선택 ===
+/// Returns the selected item.
+pub fn selection(
+  sel sel: SelectionSingleValue,
+) -> option.Option(mendix.ObjectItem) {
+  selection_raw(sel)
+}
 
-/// 현재 선택된 아이템 (없으면 None)
+/// Sets the selection.
+pub fn set_selection(
+  sel sel: SelectionSingleValue,
+  item item: option.Option(mendix.ObjectItem),
+) -> Nil {
+  set_selection_raw(sel, item)
+}
+
+/// Returns all selected items.
+pub fn selections(sel sel: SelectionMultiValue) -> List(mendix.ObjectItem) {
+  selections_raw(sel)
+}
+
+/// Sets the selections.
+pub fn set_selections(
+  sel sel: SelectionMultiValue,
+  items items: List(mendix.ObjectItem),
+) -> Nil {
+  set_selections_raw(sel, items)
+}
+
+// -- FFI --
 @external(javascript, "../mendix_ffi.mjs", "get_selection_single")
-pub fn selection(sel: SelectionSingleValue) -> Option(ObjectItem)
+fn selection_raw(
+  sel sel: SelectionSingleValue,
+) -> option.Option(mendix.ObjectItem)
 
-/// 선택 설정 (None → 선택 해제)
 @external(javascript, "../mendix_ffi.mjs", "set_selection_single")
-pub fn set_selection(sel: SelectionSingleValue, item: Option(ObjectItem)) -> Nil
+fn set_selection_raw(
+  sel sel: SelectionSingleValue,
+  item item: option.Option(mendix.ObjectItem),
+) -> Nil
 
-// === 다중 선택 ===
-
-/// 현재 선택된 아이템 목록
 @external(javascript, "../mendix_ffi.mjs", "get_selection_multi")
-pub fn selections(sel: SelectionMultiValue) -> List(ObjectItem)
+fn selections_raw(sel sel: SelectionMultiValue) -> List(mendix.ObjectItem)
 
-/// 선택 목록 설정
 @external(javascript, "../mendix_ffi.mjs", "set_selection_multi")
-pub fn set_selections(sel: SelectionMultiValue, items: List(ObjectItem)) -> Nil
+fn set_selections_raw(
+  sel sel: SelectionMultiValue,
+  items items: List(mendix.ObjectItem),
+) -> Nil

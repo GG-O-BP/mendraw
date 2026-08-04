@@ -1,23 +1,53 @@
-// 외부 JS React 컴포넌트를 redraw Element로 렌더링하는 브릿지
+//// Adapts typed JavaScript components to Redraw elements.
+////
 
-import redraw.{type Element}
-import redraw/dom/attribute.{type Attribute}
+import redraw
+import redraw/dom/attribute
 
-/// 외부 JS React 컴포넌트 참조
+/// A typed `JsComponent` value used by the interop capability.
 pub type JsComponent
 
-/// 속성 + 자식을 가진 컴포넌트 렌더링
-@external(javascript, "./interop_ffi.mjs", "component_el")
+/// Creates a component element with attributes and children.
 pub fn component_el(
-  comp: JsComponent,
-  attrs: List(Attribute),
-  children: List(Element),
-) -> Element
+  comp comp: JsComponent,
+  attrs attrs: List(attribute.Attribute),
+  children children: List(redraw.Element),
+) -> redraw.Element {
+  component_el_raw(comp, attrs, children)
+}
 
-/// 속성 없이 자식만으로 컴포넌트 렌더링
+/// Creates a component element with children.
+pub fn component_el_(
+  comp comp: JsComponent,
+  children children: List(redraw.Element),
+) -> redraw.Element {
+  component_el__raw(comp, children)
+}
+
+/// Creates a component element without children.
+pub fn void_component_el(
+  comp comp: JsComponent,
+  attrs attrs: List(attribute.Attribute),
+) -> redraw.Element {
+  void_component_el_raw(comp, attrs)
+}
+
+// -- FFI --
+@external(javascript, "./interop_ffi.mjs", "component_el")
+fn component_el_raw(
+  comp comp: JsComponent,
+  attrs attrs: List(attribute.Attribute),
+  children children: List(redraw.Element),
+) -> redraw.Element
+
 @external(javascript, "./interop_ffi.mjs", "component_el_")
-pub fn component_el_(comp: JsComponent, children: List(Element)) -> Element
+fn component_el__raw(
+  comp comp: JsComponent,
+  children children: List(redraw.Element),
+) -> redraw.Element
 
-/// self-closing 컴포넌트 (children 없음)
 @external(javascript, "./interop_ffi.mjs", "void_component_el")
-pub fn void_component_el(comp: JsComponent, attrs: List(Attribute)) -> Element
+fn void_component_el_raw(
+  comp comp: JsComponent,
+  attrs attrs: List(attribute.Attribute),
+) -> redraw.Element

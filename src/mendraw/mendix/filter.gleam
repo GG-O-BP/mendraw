@@ -1,109 +1,286 @@
-// Mendix Filter 조건 빌더 — mendix/filters/builders 래핑
-// 사용: ListValue의 필터 조건 프로그래매틱 구성
+//// Builds typed Mendix data-source filter expressions.
+////
 
-import mendraw/mendix/list_value.{type FilterCondition}
+import mendraw/mendix/list_value
 
-// === 타입 ===
-
-/// 필터 표현식 (attribute, literal, association, empty)
+/// A typed `ValueExpression` value used by the filter capability.
 pub type ValueExpression
 
-// === Boolean 조합 ===
+/// Combines filter conditions with logical AND.
+pub fn and_(
+  conditions conditions: List(list_value.FilterCondition),
+) -> list_value.FilterCondition {
+  and__raw(conditions)
+}
 
-/// AND 조합 (모든 조건 충족)
+/// Combines filter conditions with logical OR.
+pub fn or_(
+  conditions conditions: List(list_value.FilterCondition),
+) -> list_value.FilterCondition {
+  or__raw(conditions)
+}
+
+/// Negates a filter condition.
+pub fn not_(
+  condition condition: list_value.FilterCondition,
+) -> list_value.FilterCondition {
+  not__raw(condition)
+}
+
+/// Builds an equality filter condition.
+pub fn equals(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  equals_raw(a, b)
+}
+
+/// Builds an inequality filter condition.
+pub fn not_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  not_equal_raw(a, b)
+}
+
+/// Builds a greater-than filter condition.
+pub fn greater_than(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  greater_than_raw(a, b)
+}
+
+/// Builds a greater-than-or-equal filter condition.
+pub fn greater_than_or_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  greater_than_or_equal_raw(a, b)
+}
+
+/// Builds a less-than filter condition.
+pub fn less_than(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  less_than_raw(a, b)
+}
+
+/// Builds a less-than-or-equal filter condition.
+pub fn less_than_or_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  less_than_or_equal_raw(a, b)
+}
+
+/// Builds a string-contains filter condition.
+pub fn contains(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  contains_raw(a, b)
+}
+
+/// Builds a string-prefix filter condition.
+pub fn starts_with(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  starts_with_raw(a, b)
+}
+
+/// Builds a string-suffix filter condition.
+pub fn ends_with(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  ends_with_raw(a, b)
+}
+
+/// Builds a day equality filter condition.
+pub fn day_equals(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_equals_raw(a, b)
+}
+
+/// Builds a day inequality filter condition.
+pub fn day_not_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_not_equal_raw(a, b)
+}
+
+/// Builds a day greater-than filter condition.
+pub fn day_greater_than(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_greater_than_raw(a, b)
+}
+
+/// Builds a day greater-than-or-equal filter condition.
+pub fn day_greater_than_or_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_greater_than_or_equal_raw(a, b)
+}
+
+/// Builds a day less-than filter condition.
+pub fn day_less_than(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_less_than_raw(a, b)
+}
+
+/// Builds a day less-than-or-equal filter condition.
+pub fn day_less_than_or_equal(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition {
+  day_less_than_or_equal_raw(a, b)
+}
+
+/// Creates an attribute value expression.
+pub fn attribute(id id: String) -> ValueExpression {
+  attribute_raw(id)
+}
+
+/// Creates an association value expression.
+pub fn association(id id: String) -> ValueExpression {
+  association_raw(id)
+}
+
+/// Creates a literal value expression.
+pub fn literal(value value: a) -> ValueExpression {
+  literal_raw(value)
+}
+
+/// Creates an empty value expression.
+pub fn empty() -> ValueExpression {
+  empty_raw()
+}
+
+// -- FFI --
 @external(javascript, "./filter_ffi.mjs", "filter_and")
-pub fn and_(conditions: List(FilterCondition)) -> FilterCondition
+fn and__raw(
+  conditions conditions: List(list_value.FilterCondition),
+) -> list_value.FilterCondition
 
-/// OR 조합 (하나 이상 충족)
 @external(javascript, "./filter_ffi.mjs", "filter_or")
-pub fn or_(conditions: List(FilterCondition)) -> FilterCondition
+fn or__raw(
+  conditions conditions: List(list_value.FilterCondition),
+) -> list_value.FilterCondition
 
-/// NOT 부정
 @external(javascript, "./filter_ffi.mjs", "filter_not")
-pub fn not_(condition: FilterCondition) -> FilterCondition
-
-// === 동등 비교 ===
+fn not__raw(
+  condition condition: list_value.FilterCondition,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_equals")
-pub fn equals(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn equals_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_not_equal")
-pub fn not_equal(a: ValueExpression, b: ValueExpression) -> FilterCondition
-
-// === 크기 비교 ===
+fn not_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_greater_than")
-pub fn greater_than(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn greater_than_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_greater_than_or_equal")
-pub fn greater_than_or_equal(
-  a: ValueExpression,
-  b: ValueExpression,
-) -> FilterCondition
+fn greater_than_or_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_less_than")
-pub fn less_than(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn less_than_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_less_than_or_equal")
-pub fn less_than_or_equal(
-  a: ValueExpression,
-  b: ValueExpression,
-) -> FilterCondition
-
-// === 문자열 검색 ===
+fn less_than_or_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_contains")
-pub fn contains(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn contains_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_starts_with")
-pub fn starts_with(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn starts_with_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_ends_with")
-pub fn ends_with(a: ValueExpression, b: ValueExpression) -> FilterCondition
-
-// === 날짜 비교 ===
+fn ends_with_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_equals")
-pub fn day_equals(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn day_equals_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_not_equal")
-pub fn day_not_equal(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn day_not_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_greater_than")
-pub fn day_greater_than(
-  a: ValueExpression,
-  b: ValueExpression,
-) -> FilterCondition
+fn day_greater_than_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_greater_than_or_equal")
-pub fn day_greater_than_or_equal(
-  a: ValueExpression,
-  b: ValueExpression,
-) -> FilterCondition
+fn day_greater_than_or_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_less_than")
-pub fn day_less_than(a: ValueExpression, b: ValueExpression) -> FilterCondition
+fn day_less_than_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
 @external(javascript, "./filter_ffi.mjs", "filter_day_less_than_or_equal")
-pub fn day_less_than_or_equal(
-  a: ValueExpression,
-  b: ValueExpression,
-) -> FilterCondition
+fn day_less_than_or_equal_raw(
+  a a: ValueExpression,
+  b b: ValueExpression,
+) -> list_value.FilterCondition
 
-// === 표현식 생성 ===
-
-/// 속성 참조 표현식 (속성 ID로 지정)
 @external(javascript, "./filter_ffi.mjs", "filter_attribute")
-pub fn attribute(id: String) -> ValueExpression
+fn attribute_raw(id id: String) -> ValueExpression
 
-/// 연관 관계 참조 표현식 (연관 ID로 지정)
 @external(javascript, "./filter_ffi.mjs", "filter_association")
-pub fn association(id: String) -> ValueExpression
+fn association_raw(id id: String) -> ValueExpression
 
-/// 리터럴 값 표현식
 @external(javascript, "./filter_ffi.mjs", "filter_literal")
-pub fn literal(value: a) -> ValueExpression
+fn literal_raw(value value: a) -> ValueExpression
 
-/// 빈 값 표현식
 @external(javascript, "./filter_ffi.mjs", "filter_empty")
-pub fn empty() -> ValueExpression
+fn empty_raw() -> ValueExpression

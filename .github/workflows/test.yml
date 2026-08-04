@@ -1,23 +1,29 @@
-name: test
+name: Mendraw gates
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [main, master]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  package-gates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
+          otp-version: "29"
           gleam-version: "1.17.0"
           rebar3-version: "3"
-          # elixir-version: "1"
-      - run: gleam deps download
-      - run: gleam test
-      - run: gleam format --check src test
+      - uses: oven-sh/setup-bun@v2
+      - run: |
+          gleam deps download
+          gleam format --check
+          gleam check
+          gleam build --warnings-as-errors
+          gleam docs build
+          gleam test --runtime bun

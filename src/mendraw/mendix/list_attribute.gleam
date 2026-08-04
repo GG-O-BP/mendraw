@@ -1,57 +1,119 @@
-// Mendix List-linked 타입 — ListValue의 아이템별 접근자
+//// Provides typed access to Mendix list attributes.
+////
+
 // ListAttributeValue, ListActionValue, ListExpressionValue, ListWidgetValue
+import gleam/option
+import mendraw/mendix
+import mendraw/mendix/formatter
+import redraw
 
-import gleam/option.{type Option}
-import mendraw/mendix.{type ObjectItem}
-import mendraw/mendix/formatter.{type ValueFormatter}
-import redraw.{type Element}
-
-// === 타입 ===
-
+/// A typed `ListAttributeValue` value used by the list attribute capability.
 pub type ListAttributeValue
 
+/// A typed `ListActionValue` value used by the list attribute capability.
 pub type ListActionValue
 
+/// A typed `ListExpressionValue` value used by the list attribute capability.
 pub type ListExpressionValue
 
+/// A typed `ListWidgetValue` value used by the list attribute capability.
 pub type ListWidgetValue
 
-// === 아이템별 값 접근 (공용 FFI: list_type_get) ===
+/// Returns the list attribute for an item.
+pub fn get_attribute(
+  attr attr: ListAttributeValue,
+  item item: mendix.ObjectItem,
+) -> a {
+  get_attribute_raw(attr, item)
+}
 
-/// 특정 아이템의 속성 값 가져오기 (EditableValue 반환)
+/// Returns the list action for an item.
+pub fn get_action(
+  action action: ListActionValue,
+  item item: mendix.ObjectItem,
+) -> option.Option(a) {
+  get_action_raw(action, item)
+}
+
+/// Returns the list expression for an item.
+pub fn get_expression(
+  expr expr: ListExpressionValue,
+  item item: mendix.ObjectItem,
+) -> a {
+  get_expression_raw(expr, item)
+}
+
+/// Returns the list widget for an item.
+pub fn get_widget(
+  widget widget: ListWidgetValue,
+  item item: mendix.ObjectItem,
+) -> redraw.Element {
+  get_widget_raw(widget, item)
+}
+
+/// Returns the attribute identifier.
+pub fn attr_id(attr attr: ListAttributeValue) -> String {
+  attr_id_raw(attr)
+}
+
+/// Reports whether the attribute is sortable.
+pub fn attr_sortable(attr attr: ListAttributeValue) -> Bool {
+  attr_sortable_raw(attr)
+}
+
+/// Reports whether the attribute is filterable.
+pub fn attr_filterable(attr attr: ListAttributeValue) -> Bool {
+  attr_filterable_raw(attr)
+}
+
+/// Returns the attribute type name.
+pub fn attr_type(attr attr: ListAttributeValue) -> String {
+  attr_type_raw(attr)
+}
+
+/// Returns the attribute value formatter.
+pub fn attr_formatter(
+  attr attr: ListAttributeValue,
+) -> formatter.ValueFormatter {
+  attr_formatter_raw(attr)
+}
+
+// -- FFI --
 @external(javascript, "../mendix_ffi.mjs", "list_type_get")
-pub fn get_attribute(attr: ListAttributeValue, item: ObjectItem) -> a
+fn get_attribute_raw(
+  attr attr: ListAttributeValue,
+  item item: mendix.ObjectItem,
+) -> a
 
-/// 특정 아이템의 액션 가져오기 (Option(ActionValue) 반환)
 @external(javascript, "../mendix_ffi.mjs", "list_type_get")
-pub fn get_action(action: ListActionValue, item: ObjectItem) -> Option(a)
+fn get_action_raw(
+  action action: ListActionValue,
+  item item: mendix.ObjectItem,
+) -> option.Option(a)
 
-/// 특정 아이템의 표현식 값 가져오기 (DynamicValue 반환)
 @external(javascript, "../mendix_ffi.mjs", "list_type_get")
-pub fn get_expression(expr: ListExpressionValue, item: ObjectItem) -> a
+fn get_expression_raw(
+  expr expr: ListExpressionValue,
+  item item: mendix.ObjectItem,
+) -> a
 
-/// 특정 아이템의 위젯 렌더링 가져오기 (Element 반환)
 @external(javascript, "../mendix_ffi.mjs", "list_type_get")
-pub fn get_widget(widget: ListWidgetValue, item: ObjectItem) -> Element
+fn get_widget_raw(
+  widget widget: ListWidgetValue,
+  item item: mendix.ObjectItem,
+) -> redraw.Element
 
-// === ListAttributeValue 메타데이터 ===
-
-/// 속성 ID
 @external(javascript, "../mendix_ffi.mjs", "get_list_attr_id")
-pub fn attr_id(attr: ListAttributeValue) -> String
+fn attr_id_raw(attr attr: ListAttributeValue) -> String
 
-/// 정렬 가능 여부
 @external(javascript, "../mendix_ffi.mjs", "get_list_attr_sortable")
-pub fn attr_sortable(attr: ListAttributeValue) -> Bool
+fn attr_sortable_raw(attr attr: ListAttributeValue) -> Bool
 
-/// 필터링 가능 여부
 @external(javascript, "../mendix_ffi.mjs", "get_list_attr_filterable")
-pub fn attr_filterable(attr: ListAttributeValue) -> Bool
+fn attr_filterable_raw(attr attr: ListAttributeValue) -> Bool
 
-/// 속성 타입 문자열 ("String", "Integer", "DateTime" 등)
 @external(javascript, "../mendix_ffi.mjs", "get_list_attr_type")
-pub fn attr_type(attr: ListAttributeValue) -> String
+fn attr_type_raw(attr attr: ListAttributeValue) -> String
 
-/// 속성 포매터
 @external(javascript, "../mendix_ffi.mjs", "get_list_attr_formatter")
-pub fn attr_formatter(attr: ListAttributeValue) -> ValueFormatter
+fn attr_formatter_raw(attr attr: ListAttributeValue) -> formatter.ValueFormatter

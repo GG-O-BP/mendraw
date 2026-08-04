@@ -1,23 +1,21 @@
-// Mendix WebIcon 타입 — 아이콘 (글리프, 이미지, 아이콘 폰트)
-// Studio Pro에서 설정한 아이콘 속성
+//// Provides typed access to Mendix web icons.
+////
 
-// === 타입 ===
-
+/// A typed `WebIcon` value used by the icon capability.
 pub type WebIcon
 
+/// A typed `IconType` value used by the icon capability.
 pub type IconType {
+  /// The `Glyph` variant.
   Glyph
+  /// The `Image` variant.
   Image
+  /// The `IconFont` variant.
   IconFont
 }
 
-// === 접근자 ===
-
-@external(javascript, "../mendix_ffi.mjs", "get_icon_type")
-fn get_icon_type_raw(icon: WebIcon) -> String
-
-/// 아이콘 종류 (Glyph, Image, IconFont)
-pub fn icon_type(icon: WebIcon) -> IconType {
+/// Returns the typed icon kind.
+pub fn icon_type(icon icon: WebIcon) -> IconType {
   case get_icon_type_raw(icon) {
     "glyph" -> Glyph
     "image" -> Image
@@ -25,10 +23,22 @@ pub fn icon_type(icon: WebIcon) -> IconType {
   }
 }
 
-/// 아이콘 CSS 클래스 (Glyph, IconFont에서 사용)
-@external(javascript, "../mendix_ffi.mjs", "get_icon_class")
-pub fn icon_class(icon: WebIcon) -> String
+/// Returns the icon font class.
+pub fn icon_class(icon icon: WebIcon) -> String {
+  icon_class_raw(icon)
+}
 
-/// 아이콘 이미지 URL (Image에서 사용)
+/// Returns the icon image URL.
+pub fn icon_url(icon icon: WebIcon) -> String {
+  icon_url_raw(icon)
+}
+
+// -- FFI --
+@external(javascript, "../mendix_ffi.mjs", "get_icon_type")
+fn get_icon_type_raw(icon: WebIcon) -> String
+
+@external(javascript, "../mendix_ffi.mjs", "get_icon_class")
+fn icon_class_raw(icon icon: WebIcon) -> String
+
 @external(javascript, "../mendix_ffi.mjs", "get_icon_url")
-pub fn icon_url(icon: WebIcon) -> String
+fn icon_url_raw(icon icon: WebIcon) -> String

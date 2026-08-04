@@ -1,25 +1,70 @@
-//// .mpk 위젯 컴포넌트 바인딩
-//// build/widgets/ 캐시의 Mendix 위젯을 React 컴포넌트로 사용한다.
-//// gleam run -m mendraw/install 실행 시 바인딩이 자동 생성된다.
+//// Resolves generated Mendix widget bindings and constructs their properties.
 ////
 //// ```gleam
+//// import gleam/result
 //// import mendraw/widget
 //// import mendraw/interop
 ////
-//// let comp = widget.component("Switch")
-//// interop.component_el(comp, [
-////   widget.prop("caption", "제목"),
+//// use component <- result.try(widget.component("Switch"))
+//// Ok(interop.component_el(component, [
 ////   widget.editable_prop("textAttr", value, display, set_value),
 ////   widget.action_prop("onClick", handler),
-//// ], [])
+//// ], []))
 //// ```
 
-import mendraw/interop.{type JsComponent}
-import redraw/dom/attribute.{type Attribute}
+import gleam/result
+import mendraw/interop
+import redraw/dom/attribute
 
-/// .mpk 위젯의 React 컴포넌트를 가져온다
+/// Describes a generated widget-binding lookup failure.
+pub type WidgetError {
+  /// The requested widget is not registered in the generated binding table.
+  ComponentWasNotFound(name: String, reason: String)
+}
+
+/// Resolves a Mendix widget component by name.
+pub fn component(
+  name name: String,
+) -> Result(interop.JsComponent, WidgetError) {
+  component_raw(name)
+  |> result.map_error(fn(error) {
+    ComponentWasNotFound(name: name, reason: raw_widget_error_message(error))
+  })
+}
+
+/// Creates a dynamic widget property.
+pub fn prop(key key: String, value value: a) -> attribute.Attribute {
+  attribute.attribute(key, to_mendix_dynamic(value))
+}
+
+/// Creates an editable widget property.
+pub fn editable_prop(
+  key key: String,
+  value value: a,
+  display_value display_value: String,
+  set_value set_value: fn(a) -> Nil,
+) -> attribute.Attribute {
+  attribute.attribute(key, to_mendix_editable(value, display_value, set_value))
+}
+
+/// Creates an action widget property.
+pub fn action_prop(
+  key key: String,
+  handler handler: fn() -> Nil,
+) -> attribute.Attribute {
+  attribute.attribute(key, to_mendix_action(handler))
+}
+
+type RawWidgetError
+
+// -- FFI --
 @external(javascript, "./widget_ffi.mjs", "get_widget")
-pub fn component(name: String) -> JsComponent
+fn component_raw(
+  name name: String,
+) -> Result(interop.JsComponent, RawWidgetError)
+
+@external(javascript, "./widget_ffi.mjs", "widget_error_message")
+fn raw_widget_error_message(error: RawWidgetError) -> String
 
 @external(javascript, "./widget_prop_ffi.mjs", "dynamic_value")
 fn to_mendix_dynamic(value: a) -> a
@@ -33,26 +78,3 @@ fn to_mendix_editable(
 
 @external(javascript, "./widget_prop_ffi.mjs", "action_value")
 fn to_mendix_action(handler: fn() -> Nil) -> a
-
-/// 값을 DynamicValue로 감싸서 위젯 prop으로 전달한다
-/// 읽기 전용 속성 (expression, textTemplate 등)
-pub fn prop(key: String, value: a) -> Attribute {
-  attribute.attribute(key, to_mendix_dynamic(value))
-}
-
-/// 값을 EditableValue로 감싸서 위젯 prop으로 전달한다
-/// 편집 가능한 속성에 사용
-pub fn editable_prop(
-  key: String,
-  value: a,
-  display_value: String,
-  set_value: fn(a) -> Nil,
-) -> Attribute {
-  attribute.attribute(key, to_mendix_editable(value, display_value, set_value))
-}
-
-/// ActionValue를 만들어 위젯 prop으로 전달한다
-/// 액션 속성 (onClick 등)
-pub fn action_prop(key: String, handler: fn() -> Nil) -> Attribute {
-  attribute.attribute(key, to_mendix_action(handler))
-}

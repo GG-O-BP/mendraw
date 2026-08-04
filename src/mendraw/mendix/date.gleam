@@ -1,92 +1,164 @@
-// Mendix JS Date 타입 — Gleam opaque 래퍼
-// EditableValue<Date>에서 반환되는 JS Date 객체를 타입 안전하게 다룸
+//// Converts between Mendix date values and JavaScript dates.
+////
 
-import gleam/option.{type Option}
+import gleam/option
 
-// === 타입 ===
-
+/// A typed `JsDate` value used by the date capability.
 pub type JsDate
 
-// === 생성 ===
+/// Returns the current JavaScript date.
+pub fn now() -> JsDate {
+  now_raw()
+}
 
-/// 현재 시각
-@external(javascript, "../mendix_ffi.mjs", "date_now")
-pub fn now() -> JsDate
+/// Parses an ISO-8601 date string.
+pub fn from_iso(iso_string iso_string: String) -> JsDate {
+  from_iso_raw(iso_string)
+}
 
-/// ISO 8601 문자열로 생성
-@external(javascript, "../mendix_ffi.mjs", "date_from_iso")
-pub fn from_iso(iso_string: String) -> JsDate
+/// Creates a date from a Unix timestamp.
+pub fn from_timestamp(ms ms: Int) -> JsDate {
+  from_timestamp_raw(ms)
+}
 
-/// Unix 타임스탬프(밀리초)로 생성
-@external(javascript, "../mendix_ffi.mjs", "date_from_timestamp")
-pub fn from_timestamp(ms: Int) -> JsDate
-
-/// 날짜/시간 요소로 생성 (month: 1-12)
-@external(javascript, "../mendix_ffi.mjs", "date_create")
+/// Creates a date from calendar and clock components.
 pub fn create(
-  year: Int,
-  month: Int,
-  day: Int,
-  hours: Int,
-  minutes: Int,
-  seconds: Int,
-  milliseconds: Int,
+  year year: Int,
+  month month: Int,
+  day day: Int,
+  hours hours: Int,
+  minutes minutes: Int,
+  seconds seconds: Int,
+  milliseconds milliseconds: Int,
+) -> JsDate {
+  create_raw(year, month, day, hours, minutes, seconds, milliseconds)
+}
+
+/// Serializes a date as ISO-8601 text.
+pub fn to_iso(date date: JsDate) -> String {
+  to_iso_raw(date)
+}
+
+/// Returns the Unix timestamp for a date.
+pub fn to_timestamp(date date: JsDate) -> Int {
+  to_timestamp_raw(date)
+}
+
+/// Returns the JavaScript string representation of a date.
+pub fn to_string(date date: JsDate) -> String {
+  to_string_raw(date)
+}
+
+/// Returns the local calendar year.
+pub fn year(date date: JsDate) -> Int {
+  year_raw(date)
+}
+
+/// Returns the local calendar month.
+pub fn month(date date: JsDate) -> Int {
+  month_raw(date)
+}
+
+/// Returns the local day of the month.
+pub fn day(date date: JsDate) -> Int {
+  day_raw(date)
+}
+
+/// Returns the local hour.
+pub fn hours(date date: JsDate) -> Int {
+  hours_raw(date)
+}
+
+/// Returns the local minute.
+pub fn minutes(date date: JsDate) -> Int {
+  minutes_raw(date)
+}
+
+/// Returns the local second.
+pub fn seconds(date date: JsDate) -> Int {
+  seconds_raw(date)
+}
+
+/// Returns the local millisecond.
+pub fn milliseconds(date date: JsDate) -> Int {
+  milliseconds_raw(date)
+}
+
+/// Returns the local day-of-week index.
+pub fn day_of_week(date date: JsDate) -> Int {
+  day_of_week_raw(date)
+}
+
+/// Formats a date for an HTML date or time input.
+pub fn to_input_value(date date: JsDate) -> String {
+  to_input_value_raw(date)
+}
+
+/// Parses a date from an HTML input value.
+pub fn from_input_value(
+  date_string date_string: String,
+) -> option.Option(JsDate) {
+  from_input_value_raw(date_string)
+}
+
+// -- FFI --
+@external(javascript, "../mendix_ffi.mjs", "date_now")
+fn now_raw() -> JsDate
+
+@external(javascript, "../mendix_ffi.mjs", "date_from_iso")
+fn from_iso_raw(iso_string iso_string: String) -> JsDate
+
+@external(javascript, "../mendix_ffi.mjs", "date_from_timestamp")
+fn from_timestamp_raw(ms ms: Int) -> JsDate
+
+@external(javascript, "../mendix_ffi.mjs", "date_create")
+fn create_raw(
+  year year: Int,
+  month month: Int,
+  day day: Int,
+  hours hours: Int,
+  minutes minutes: Int,
+  seconds seconds: Int,
+  milliseconds milliseconds: Int,
 ) -> JsDate
 
-// === 변환 ===
-
-/// ISO 8601 문자열로 변환
 @external(javascript, "../mendix_ffi.mjs", "date_to_iso")
-pub fn to_iso(date: JsDate) -> String
+fn to_iso_raw(date date: JsDate) -> String
 
-/// Unix 타임스탬프(밀리초) 반환
 @external(javascript, "../mendix_ffi.mjs", "date_get_time")
-pub fn to_timestamp(date: JsDate) -> Int
+fn to_timestamp_raw(date date: JsDate) -> Int
 
-/// 사람이 읽기 쉬운 문자열로 변환
 @external(javascript, "../mendix_ffi.mjs", "date_to_string")
-pub fn to_string(date: JsDate) -> String
+fn to_string_raw(date date: JsDate) -> String
 
-// === 접근자 ===
-
-/// 연도 (4자리)
 @external(javascript, "../mendix_ffi.mjs", "date_get_full_year")
-pub fn year(date: JsDate) -> Int
+fn year_raw(date date: JsDate) -> Int
 
-/// 월 (1-12, Gleam 기준 1-based)
 @external(javascript, "../mendix_ffi.mjs", "date_get_month")
-pub fn month(date: JsDate) -> Int
+fn month_raw(date date: JsDate) -> Int
 
-/// 일 (1-31)
 @external(javascript, "../mendix_ffi.mjs", "date_get_date")
-pub fn day(date: JsDate) -> Int
+fn day_raw(date date: JsDate) -> Int
 
-/// 시 (0-23)
 @external(javascript, "../mendix_ffi.mjs", "date_get_hours")
-pub fn hours(date: JsDate) -> Int
+fn hours_raw(date date: JsDate) -> Int
 
-/// 분 (0-59)
 @external(javascript, "../mendix_ffi.mjs", "date_get_minutes")
-pub fn minutes(date: JsDate) -> Int
+fn minutes_raw(date date: JsDate) -> Int
 
-/// 초 (0-59)
 @external(javascript, "../mendix_ffi.mjs", "date_get_seconds")
-pub fn seconds(date: JsDate) -> Int
+fn seconds_raw(date date: JsDate) -> Int
 
-/// 밀리초 (0-999)
 @external(javascript, "../mendix_ffi.mjs", "date_get_milliseconds")
-pub fn milliseconds(date: JsDate) -> Int
+fn milliseconds_raw(date date: JsDate) -> Int
 
-/// 요일 (0=일요일, 1=월요일, ..., 6=토요일)
 @external(javascript, "../mendix_ffi.mjs", "date_get_day")
-pub fn day_of_week(date: JsDate) -> Int
+fn day_of_week_raw(date date: JsDate) -> Int
 
-// === HTML input[type="date"] 변환 ===
-
-/// JsDate → "YYYY-MM-DD" 변환 (로컬 시간 기준, input[type="date"] 용)
 @external(javascript, "../mendix_ffi.mjs", "date_to_input_value")
-pub fn to_input_value(date: JsDate) -> String
+fn to_input_value_raw(date date: JsDate) -> String
 
-/// "YYYY-MM-DD" → Option(JsDate) 변환 (빈 문자열 → None)
 @external(javascript, "../mendix_ffi.mjs", "input_value_to_date")
-pub fn from_input_value(date_string: String) -> Option(JsDate)
+fn from_input_value_raw(
+  date_string date_string: String,
+) -> option.Option(JsDate)

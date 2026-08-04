@@ -1,34 +1,67 @@
-// build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다
+//// Generates Mendraw bindings from package assets already present on disk.
+////
+//// Package discovery, downloading, locking, and caching belong to mxpak. This
+//// module only converts extracted `build/widgets/*` assets into typed Gleam and
+//// JavaScript bindings for Mendraw consumers.
 
-import gleam/option.{type Option}
+import gleam/io
+import gleam/result
 
-/// 파일 존재 여부를 확인한다.
+/// Describes a Mendraw binding-generation failure.
+pub type CommandError {
+  /// A named generation operation failed with the supplied JavaScript reason.
+  CommandFailed(operation: String, reason: String)
+}
+
+/// Reports whether a file exists.
+pub fn file_exists(path path: String) -> Bool {
+  file_exists_raw(path)
+}
+
+/// Generates widget bindings from extracted package assets.
+pub fn generate_widget_bindings() -> Result(Nil, CommandError) {
+  generate_widget_bindings_raw()
+  |> map_raw_error("generate widget bindings")
+}
+
+/// Prints a tooling error at a command-line boundary.
+@internal
+pub fn report(result result: Result(Nil, CommandError)) -> Nil {
+  case result {
+    Ok(Nil) -> Nil
+    Error(CommandFailed(operation, reason)) ->
+      io.println_error(operation <> " failed: " <> reason)
+  }
+}
+
+/// Returns a human-readable tooling error.
+pub fn error_message(error error: CommandError) -> String {
+  case error {
+    CommandFailed(operation, reason) -> operation <> " failed: " <> reason
+  }
+}
+
+type RawCommandError
+
+fn map_raw_error(
+  raw_result: Result(value, RawCommandError),
+  operation: String,
+) -> Result(value, CommandError) {
+  raw_result
+  |> result.map_error(fn(error) {
+    CommandFailed(
+      operation: operation,
+      reason: raw_command_error_message(error),
+    )
+  })
+}
+
+// -- FFI --
 @external(javascript, "./cmd_ffi.mjs", "file_exists")
-pub fn file_exists(path: String) -> Bool
+fn file_exists_raw(path path: String) -> Bool
 
-/// build/widgets/ 캐시에서 위젯 컴포넌트 바인딩을 생성한다.
-/// mendraw 빌드 경로에 widget_ffi.mjs와 위젯 에셋을 생성한다.
 @external(javascript, "./cmd_ffi.mjs", "generate_widget_bindings")
-pub fn generate_widget_bindings() -> Nil
+fn generate_widget_bindings_raw() -> Result(Nil, RawCommandError)
 
-/// gleam.toml [tools.mendraw.widgets.*]에 등록된 위젯을 다운로드/캐시한다.
-@external(javascript, "./cmd_ffi.mjs", "resolve_toml_widgets")
-pub fn resolve_toml_widgets() -> Nil
-
-/// gleam.toml에 위젯 항목을 쓰기/업데이트한다.
-@external(javascript, "./cmd_ffi.mjs", "write_widget_toml")
-pub fn write_widget_toml(
-  name: String,
-  version: String,
-  id: Option(Int),
-  s3_id: Option(String),
-) -> Nil
-
-/// .mpk를 다운로드하고 build/widgets/{name}/에 추출한다.
-@external(javascript, "./cmd_ffi.mjs", "download_to_cache")
-pub fn download_to_cache(
-  url: String,
-  name: String,
-  version: String,
-  id: Option(Int),
-) -> Bool
+@external(javascript, "./cmd_ffi.mjs", "command_error_message")
+fn raw_command_error_message(error: RawCommandError) -> String

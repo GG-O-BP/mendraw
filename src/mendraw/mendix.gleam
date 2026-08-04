@@ -1,22 +1,30 @@
-// Mendix Pluggable Widget API - 핵심 타입 + JsProps 접근자
-// ValueStatus, ObjectItem 타입과 props 접근 유틸리티
+//// Provides typed access to common Mendix client values.
+////
 
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option
 import gleam/string
 
-/// Mendix가 전달하는 props 객체
+/// A typed `JsProps` value used by the mendix capability.
 pub type JsProps
 
-// === ValueStatus ===
-
+// -- Valuestatus --
+/// A typed `ValueStatus` value used by the mendix capability.
 pub type ValueStatus {
+  /// The `Available` variant.
   Available
+  /// The `Unavailable` variant.
   Unavailable
+  /// The `Loading` variant.
   Loading
 }
 
-pub fn to_value_status(status: String) -> ValueStatus {
+// -- Objectitem --
+/// A typed `ObjectItem` value used by the mendix capability.
+pub type ObjectItem
+
+/// Converts a Mendix status string into a typed status.
+pub fn to_value_status(status status: String) -> ValueStatus {
   case status {
     "available" -> Available
     "loading" -> Loading
@@ -24,54 +32,48 @@ pub fn to_value_status(status: String) -> ValueStatus {
   }
 }
 
-// === ObjectItem ===
+/// Returns the Mendix object identifier.
+pub fn object_id(item item: ObjectItem) -> String {
+  object_id_raw(item)
+}
 
-pub type ObjectItem
+/// Returns an optional Mendix property.
+pub fn get_prop(props props: JsProps, key key: String) -> option.Option(a) {
+  get_prop_raw(props, key)
+}
 
-@external(javascript, "./mendix_ffi.mjs", "get_object_id")
-pub fn object_id(item: ObjectItem) -> String
+/// Returns a required Mendix property.
+pub fn get_prop_required(props props: JsProps, key key: String) -> a {
+  get_prop_required_raw(props, key)
+}
 
-// === JsProps 접근자 ===
+/// Returns a Mendix property as text.
+pub fn get_string_prop(props props: JsProps, key key: String) -> String {
+  get_string_prop_raw(props, key)
+}
 
-/// Mendix props에서 값 추출 (undefined → None)
-@external(javascript, "./mendix_ffi.mjs", "get_mendix_prop")
-pub fn get_prop(props: JsProps, key: String) -> Option(a)
+/// Reports whether a Mendix property is present.
+pub fn has_prop(props props: JsProps, key key: String) -> Bool {
+  has_prop_raw(props, key)
+}
 
-/// Mendix props에서 항상 존재하는 값 추출
-@external(javascript, "./mendix_ffi.mjs", "get_mendix_prop_required")
-pub fn get_prop_required(props: JsProps, key: String) -> a
-
-/// Mendix props에서 문자열 속성값 추출 (undefined → "")
-@external(javascript, "./mendix_ffi.mjs", "get_string_prop")
-pub fn get_string_prop(props: JsProps, key: String) -> String
-
-/// Mendix props에서 키 존재 확인
-@external(javascript, "./mendix_ffi.mjs", "has_prop")
-pub fn has_prop(props: JsProps, key: String) -> Bool
-
-// === Status 접근 (status 속성을 가진 모든 Mendix 객체) ===
-
-@external(javascript, "./mendix_ffi.mjs", "get_status")
-fn get_status_raw(obj: a) -> String
-
-pub fn get_status(obj: a) -> ValueStatus {
+/// Returns the typed status of a Mendix value.
+pub fn get_status(obj obj: a) -> ValueStatus {
   to_value_status(get_status_raw(obj))
 }
 
-// === Option 변환 유틸리티 (FFI 경계 처리) ===
+/// Converts nullable JavaScript data into an option.
+pub fn to_option(value value: a) -> option.Option(a) {
+  to_option_raw(value)
+}
 
-/// JS 값을 Gleam Option으로 변환 (undefined/null → None)
-@external(javascript, "./mendix_ffi.mjs", "to_option")
-pub fn to_option(value: a) -> Option(a)
+/// Converts an option into nullable JavaScript data.
+pub fn from_option(option option: option.Option(a)) -> a {
+  from_option_raw(option)
+}
 
-/// Gleam Option을 JS 값으로 변환 (None → undefined)
-@external(javascript, "./mendix_ffi.mjs", "from_option")
-pub fn from_option(option: Option(a)) -> a
-
-// === CSS 유틸리티 ===
-
-/// CSS 클래스명 조건부 조합
-pub fn cx(classes: List(#(String, Bool))) -> String {
+/// Joins the class names whose conditions are enabled.
+pub fn cx(classes classes: List(#(String, Bool))) -> String {
   classes
   |> list.filter_map(fn(pair) {
     case pair.1 {
@@ -81,3 +83,28 @@ pub fn cx(classes: List(#(String, Bool))) -> String {
   })
   |> string.join(" ")
 }
+
+// -- FFI --
+@external(javascript, "./mendix_ffi.mjs", "get_object_id")
+fn object_id_raw(item item: ObjectItem) -> String
+
+@external(javascript, "./mendix_ffi.mjs", "get_mendix_prop")
+fn get_prop_raw(props props: JsProps, key key: String) -> option.Option(a)
+
+@external(javascript, "./mendix_ffi.mjs", "get_mendix_prop_required")
+fn get_prop_required_raw(props props: JsProps, key key: String) -> a
+
+@external(javascript, "./mendix_ffi.mjs", "get_string_prop")
+fn get_string_prop_raw(props props: JsProps, key key: String) -> String
+
+@external(javascript, "./mendix_ffi.mjs", "has_prop")
+fn has_prop_raw(props props: JsProps, key key: String) -> Bool
+
+@external(javascript, "./mendix_ffi.mjs", "get_status")
+fn get_status_raw(obj: a) -> String
+
+@external(javascript, "./mendix_ffi.mjs", "to_option")
+fn to_option_raw(value value: a) -> option.Option(a)
+
+@external(javascript, "./mendix_ffi.mjs", "from_option")
+fn from_option_raw(option option: option.Option(a)) -> a

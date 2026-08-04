@@ -1,113 +1,196 @@
-// Mendix ListValue 타입 — 데이터 소스에서 가져온 객체 목록
-// 사용: 데이터 그리드, 리스트 뷰 등
+//// Provides typed access to Mendix list data sources.
+////
 
-import gleam/option.{type Option}
-import mendraw/mendix.{type ObjectItem, type ValueStatus}
+import gleam/option
+import mendraw/mendix
 
-// === 타입 ===
-
+/// A typed `ListValue` value used by the list value capability.
 pub type ListValue
 
+/// A typed `FilterCondition` value used by the list value capability.
 pub type FilterCondition
 
+/// A typed `SortInstruction` value used by the list value capability.
 pub type SortInstruction
 
+/// A typed `SortDirection` value used by the list value capability.
 pub type SortDirection {
+  /// The `Asc` variant.
   Asc
+  /// The `Desc` variant.
   Desc
 }
 
-// === 접근자 ===
+/// Controls whether Mendix should calculate the total item count.
+pub type TotalCountRequest {
+  /// Requests total-count calculation.
+  RequestTotalCount
+  /// Skips total-count calculation.
+  SkipTotalCount
+}
 
-@external(javascript, "../mendix_ffi.mjs", "get_status")
-fn get_status_raw(lv: ListValue) -> String
-
-/// 현재 상태 (Available, Loading, Unavailable)
-pub fn status(lv: ListValue) -> ValueStatus {
+/// Returns the list loading status.
+pub fn status(lv lv: ListValue) -> mendix.ValueStatus {
   mendix.to_value_status(get_status_raw(lv))
 }
 
-/// 아이템 목록 (로딩 중이면 None)
-@external(javascript, "../mendix_ffi.mjs", "get_list_items")
-pub fn items(lv: ListValue) -> Option(List(ObjectItem))
+/// Returns the loaded list items.
+pub fn items(lv lv: ListValue) -> option.Option(List(mendix.ObjectItem)) {
+  items_raw(lv)
+}
 
-/// 현재 오프셋
-@external(javascript, "../mendix_ffi.mjs", "get_list_offset")
-pub fn offset(lv: ListValue) -> Int
+/// Returns the current page offset.
+pub fn offset(lv lv: ListValue) -> Int {
+  offset_raw(lv)
+}
 
-/// 현재 페이지 크기
-@external(javascript, "../mendix_ffi.mjs", "get_list_limit")
-pub fn limit(lv: ListValue) -> Int
+/// Returns the current page size.
+pub fn limit(lv lv: ListValue) -> Int {
+  limit_raw(lv)
+}
 
-/// 더 많은 아이템이 있는지 (불확실하면 None)
-@external(javascript, "../mendix_ffi.mjs", "get_list_has_more_items")
-pub fn has_more_items(lv: ListValue) -> Option(Bool)
+/// Reports whether more items are available.
+pub fn has_more_items(lv lv: ListValue) -> option.Option(Bool) {
+  has_more_items_raw(lv)
+}
 
-/// 전체 아이템 수 (요청하지 않았으면 None)
-@external(javascript, "../mendix_ffi.mjs", "get_list_total_count")
-pub fn total_count(lv: ListValue) -> Option(Int)
+/// Returns the total item count when requested.
+pub fn total_count(lv lv: ListValue) -> option.Option(Int) {
+  total_count_raw(lv)
+}
 
-/// 현재 정렬 순서
-@external(javascript, "../mendix_ffi.mjs", "get_list_sort_order")
-pub fn sort_order(lv: ListValue) -> List(SortInstruction)
+/// Returns the current sort instructions.
+pub fn sort_order(lv lv: ListValue) -> List(SortInstruction) {
+  sort_order_raw(lv)
+}
 
-/// 현재 필터 조건 (없으면 None)
-@external(javascript, "../mendix_ffi.mjs", "get_list_filter")
-pub fn filter(lv: ListValue) -> Option(FilterCondition)
+/// Returns the current filter condition.
+pub fn filter(lv lv: ListValue) -> option.Option(FilterCondition) {
+  filter_raw(lv)
+}
 
-// === 메서드 ===
+/// Sets the offset.
+pub fn set_offset(lv lv: ListValue, offset offset: Int) -> Nil {
+  set_offset_raw(lv, offset)
+}
 
-/// 오프셋 설정 (페이지네이션)
-@external(javascript, "../mendix_ffi.mjs", "list_set_offset")
-pub fn set_offset(lv: ListValue, offset: Int) -> Nil
+/// Sets the limit.
+pub fn set_limit(lv lv: ListValue, limit limit: Int) -> Nil {
+  set_limit_raw(lv, limit)
+}
 
-/// 페이지 크기 설정
-@external(javascript, "../mendix_ffi.mjs", "list_set_limit")
-pub fn set_limit(lv: ListValue, limit: Int) -> Nil
+/// Sets the filter.
+pub fn set_filter(
+  lv lv: ListValue,
+  filter filter: option.Option(FilterCondition),
+) -> Nil {
+  set_filter_raw(lv, filter)
+}
 
-/// 필터 조건 설정 (None → 필터 해제)
-@external(javascript, "../mendix_ffi.mjs", "list_set_filter")
-pub fn set_filter(lv: ListValue, filter: Option(FilterCondition)) -> Nil
+/// Sets the sort order.
+pub fn set_sort_order(
+  lv lv: ListValue,
+  order order: List(SortInstruction),
+) -> Nil {
+  set_sort_order_raw(lv, order)
+}
 
-/// 정렬 순서 설정
-@external(javascript, "../mendix_ffi.mjs", "list_set_sort_order")
-pub fn set_sort_order(lv: ListValue, order: List(SortInstruction)) -> Nil
+/// Reloads the list data source.
+pub fn reload(lv lv: ListValue) -> Nil {
+  reload_raw(lv)
+}
 
-/// 데이터 새로고침
-@external(javascript, "../mendix_ffi.mjs", "list_reload")
-pub fn reload(lv: ListValue) -> Nil
+/// Controls whether Mendix calculates the total item count.
+pub fn request_total_count(
+  lv lv: ListValue,
+  request request: TotalCountRequest,
+) -> Nil {
+  request_total_count_raw(lv, case request {
+    RequestTotalCount -> True
+    SkipTotalCount -> False
+  })
+}
 
-/// 전체 아이템 수 요청 (True → 요청, False → 해제)
-@external(javascript, "../mendix_ffi.mjs", "list_request_total_count")
-pub fn request_total_count(lv: ListValue, need: Bool) -> Nil
-
-// === 편의 함수 (순수 Gleam) ===
-
-/// 값이 사용 가능한지 확인
-pub fn is_available(lv: ListValue) -> Bool {
+/// Reports whether the list data source is available.
+pub fn is_available(lv lv: ListValue) -> Bool {
   status(lv) == mendix.Available
 }
 
-// === SortInstruction 빌더 ===
-
-@external(javascript, "../mendix_ffi.mjs", "make_sort_instruction")
-fn make_sort_raw(id: String, asc: Bool) -> SortInstruction
-
-/// 정렬 명령 생성
-pub fn sort(id: String, direction: SortDirection) -> SortInstruction {
+/// Creates a sort instruction.
+pub fn sort(
+  id id: String,
+  direction direction: SortDirection,
+) -> SortInstruction {
   make_sort_raw(id, direction == Asc)
 }
 
-@external(javascript, "../mendix_ffi.mjs", "get_sort_id")
-pub fn sort_id(instr: SortInstruction) -> String
+/// Returns the attribute identifier from a sort instruction.
+pub fn sort_id(instr instr: SortInstruction) -> String {
+  sort_id_raw(instr)
+}
 
-@external(javascript, "../mendix_ffi.mjs", "get_sort_asc")
-fn sort_asc_raw(instr: SortInstruction) -> Bool
-
-/// 정렬 방향 조회
-pub fn sort_direction(instr: SortInstruction) -> SortDirection {
+/// Returns the direction from a sort instruction.
+pub fn sort_direction(instr instr: SortInstruction) -> SortDirection {
   case sort_asc_raw(instr) {
     True -> Asc
     False -> Desc
   }
 }
+
+// -- FFI --
+@external(javascript, "../mendix_ffi.mjs", "get_status")
+fn get_status_raw(lv: ListValue) -> String
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_items")
+fn items_raw(lv lv: ListValue) -> option.Option(List(mendix.ObjectItem))
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_offset")
+fn offset_raw(lv lv: ListValue) -> Int
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_limit")
+fn limit_raw(lv lv: ListValue) -> Int
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_has_more_items")
+fn has_more_items_raw(lv lv: ListValue) -> option.Option(Bool)
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_total_count")
+fn total_count_raw(lv lv: ListValue) -> option.Option(Int)
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_sort_order")
+fn sort_order_raw(lv lv: ListValue) -> List(SortInstruction)
+
+@external(javascript, "../mendix_ffi.mjs", "get_list_filter")
+fn filter_raw(lv lv: ListValue) -> option.Option(FilterCondition)
+
+@external(javascript, "../mendix_ffi.mjs", "list_set_offset")
+fn set_offset_raw(lv lv: ListValue, offset offset: Int) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "list_set_limit")
+fn set_limit_raw(lv lv: ListValue, limit limit: Int) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "list_set_filter")
+fn set_filter_raw(
+  lv lv: ListValue,
+  filter filter: option.Option(FilterCondition),
+) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "list_set_sort_order")
+fn set_sort_order_raw(
+  lv lv: ListValue,
+  order order: List(SortInstruction),
+) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "list_reload")
+fn reload_raw(lv lv: ListValue) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "list_request_total_count")
+fn request_total_count_raw(lv lv: ListValue, need need: Bool) -> Nil
+
+@external(javascript, "../mendix_ffi.mjs", "make_sort_instruction")
+fn make_sort_raw(id: String, asc: Bool) -> SortInstruction
+
+@external(javascript, "../mendix_ffi.mjs", "get_sort_id")
+fn sort_id_raw(instr instr: SortInstruction) -> String
+
+@external(javascript, "../mendix_ffi.mjs", "get_sort_asc")
+fn sort_asc_raw(instr: SortInstruction) -> Bool
