@@ -144,4 +144,4 @@ gleam test --runtime bun
 
 ## 라이선스
 
-[Blue Oak Model License 1.0.0](LICENCE)
+[MIT 라이선스](LICENCE)
