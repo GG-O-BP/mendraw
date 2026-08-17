@@ -10,6 +10,8 @@ permissions:
   contents: read
 
 jobs:
+  # This package workflow is the Phase 7 inner CI tier. Cross-repository and
+  # managed harness verification remains in scripts/verify.sh shared/final.
   package-gates:
     runs-on: ubuntu-latest
     steps:
