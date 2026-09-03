@@ -109,6 +109,7 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/mendix` | 핵심 handle, 상태, prop 접근, Option 변환 |
 | `mendraw/mendix/editable_value` | 편집 값과 validation |
 | `mendraw/mendix/list_value` | data source paging/filter/sort/reload |
+| `mendraw/datasource` | 데이터소스 상태·객체 목록·항목 속성의 typed 스냅샷 |
 | `mendraw/mendix/list_attribute` | item별 attribute/action/expression 접근 |
 | `mendraw/mendix/filter` | 타입 안전 필터 표현식 |
 | `mendraw/mendix/date` | JavaScript Date 경계 |
@@ -117,6 +118,19 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/classic` | 생성된 Classic 컴포넌트 조회 |
 | `mendraw/interop` | JavaScript 컴포넌트를 Redraw element로 변환 |
 | `mendraw/synthetic` | 외부 데이터를 위한 Mendix 호환 값 |
+데이터소스에 바인딩된 프로퍼티는 런타임 구조를 직접 검사하지 않고 하나의
+typed 스냅샷으로 포착할 수 있습니다:
+
+```gleam
+import mendraw/datasource
+
+case datasource.capture(props, "dataSource") {
+  datasource.Available(_, data) -> render_rows(data.items)
+  datasource.Loading(_) -> render_loading()
+  datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
+}
+```
+
 
 ## 저장소 간 관계
 

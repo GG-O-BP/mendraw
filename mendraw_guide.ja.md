@@ -109,6 +109,7 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/mendix` | 基本 handle、状態、prop アクセス、Option 変換 |
 | `mendraw/mendix/editable_value` | 編集可能値と validation |
 | `mendraw/mendix/list_value` | data source の paging/filter/sort/reload |
+| `mendraw/datasource` | データソース状態・オブジェクト一覧・項目属性の型付きスナップショット |
 | `mendraw/mendix/list_attribute` | item 別 attribute/action/expression |
 | `mendraw/mendix/filter` | 型付きフィルター式 |
 | `mendraw/mendix/date` | JavaScript Date 境界 |
@@ -117,6 +118,19 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/classic` | 生成済み Classic コンポーネント |
 | `mendraw/interop` | JavaScript コンポーネントから Redraw element への変換 |
 | `mendraw/synthetic` | 外部データ向け Mendix 互換値 |
+データソースに束縛されたプロパティは、ランタイムの構造を直接調べずに
+型付きスナップショットとして取得できます:
+
+```gleam
+import mendraw/datasource
+
+case datasource.capture(props, "dataSource") {
+  datasource.Available(_, data) -> render_rows(data.items)
+  datasource.Loading(_) -> render_loading()
+  datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
+}
+```
+
 
 ## リポジトリ間の関係
 

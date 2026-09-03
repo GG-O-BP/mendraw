@@ -131,6 +131,9 @@ import mendraw/mendix/action
 import mendraw/mendix/editable_value
 import mendraw/mendix/list_value
 
+import mendraw/mendix/list_value
+import mendraw/datasource
+
 let status = list_value.status(data_source)
 let display = editable_value.display_value(attribute)
 editable_value.set_text_value(attribute, "Updated")
@@ -140,6 +143,19 @@ case mendix.get_prop(props, "optionalValue") {
   option.Some(value) -> value
   option.None -> fallback_value
 }
+
+Datasource-bound properties can be captured as one typed snapshot instead of
+probing runtime shapes:
+
+```gleam
+import mendraw/datasource
+
+case datasource.capture(props, "dataSource") {
+  datasource.Available(_, data) -> render_rows(data.items)
+  datasource.Loading(_) -> render_loading()
+  datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
+}
+```
 ```
 
 Important modules include:
@@ -149,6 +165,7 @@ Important modules include:
 | `mendraw/mendix` | Core handles, status values, property access, option conversion |
 | `mendraw/mendix/editable_value` | Editable values and validation |
 | `mendraw/mendix/list_value` | Data-source paging, filtering, sorting, and reload |
+| `mendraw/datasource` | Typed snapshots of datasource states, object lists, and item attributes |
 | `mendraw/mendix/list_attribute` | Per-item attribute/action/expression access |
 | `mendraw/mendix/filter` | Typed filter expression construction |
 | `mendraw/mendix/date` | JavaScript date boundary |

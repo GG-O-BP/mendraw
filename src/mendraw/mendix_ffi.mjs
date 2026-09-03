@@ -269,3 +269,13 @@ export function input_value_to_date(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Some(new Date(year, month - 1, day));
 }
+
+// -- Datasource --
+export function get_object_list_prop(props, key) {
+  const value = props[key];
+  return to_option(Array.isArray(value) ? toList(value) : undefined);
+}
+export function object_entry_field_string(entry, field) {
+  const value = entry[field];
+  return to_option(typeof value === "string" ? value : undefined);
+}
