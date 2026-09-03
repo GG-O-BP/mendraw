@@ -73,3 +73,47 @@ export function pluggable_assets_generate_bindings() {
       );
   });
 }
+
+export function hostile_widget_names_generate_valid_bindings() {
+  return inTemporaryProject(() => {
+    function installWidget(dir, name, fileName) {
+      mkdirSync(`build/widgets/${dir}`, { recursive: true });
+      writeFileSync(
+        `build/widgets/${dir}/meta.toml`,
+        'version = "1.0.0"\n',
+      );
+      writeFileSync(
+        `build/widgets/${dir}/${fileName}.xml`,
+        `<widget id="Fixture.widget.${fileName}"><name>${name}</name>`
+          + '<properties><property key="1st" required="true" /></properties>'
+          + "</widget>",
+      );
+      writeFileSync(
+        `build/widgets/${dir}/${fileName}.mjs`,
+        `export default function ${fileName}() { return null; }\n`,
+      );
+    }
+    installWidget("Digit", "123 Chart", "Digit");
+    installWidget("Emoji", "😀", "Emoji");
+    installWidget("Dash", "A-B", "Dash");
+    installWidget("Space", "A B", "Space");
+    const result = generate_widget_bindings();
+    const runtime = readFileSync(
+      "build/dev/javascript/mendraw/mendraw/widget_ffi.mjs",
+      "utf-8",
+    );
+    return result instanceof Ok
+      && existsSync("src/widgets/widget_123_chart.gleam")
+      && existsSync("src/widgets/widget.gleam")
+      && existsSync("src/widgets/ab.gleam")
+      && existsSync("src/widgets/a_b.gleam")
+      && runtime.includes("import widget_123Chart from")
+      && runtime.includes("import widget from")
+      && runtime.includes("import AB from")
+      && runtime.includes("import AB_2 from")
+      && runtime.includes('"123 Chart": widget_123Chart')
+      && runtime.includes('"😀": widget')
+      && runtime.includes('"A-B": AB')
+      && runtime.includes('"A B": AB_2');
+  });
+}

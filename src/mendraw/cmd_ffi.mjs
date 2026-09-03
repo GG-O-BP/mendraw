@@ -90,7 +90,10 @@ function parseWidgetName(xmlString) {
   return match ? match[1] : null;
 }
 function toSafeIdentifier(name) {
-  return name.replace(/[^a-zA-Z0-9_$]/g, "");
+  const sanitized = name.replace(/[^a-zA-Z0-9_$]/g, "");
+  if (sanitized === "") return "widget";
+  if (/^[0-9]/.test(sanitized)) return `widget_${sanitized}`;
+  return sanitized;
 }
 function parseProperties(widgetXml) {
   const properties = [];
@@ -134,11 +137,18 @@ function toSnakeCase(str) {
     .toLowerCase();
 }
 function toModuleFileName(name) {
-  return name
+  const snake = name
     .replace(/\s+/g, "_")
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .replace(/([A-Z])([A-Z][a-z])/g, "$1_$2")
     .toLowerCase();
+  const cleaned = snake
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (cleaned === "") return "widget";
+  if (/^[0-9]/.test(cleaned)) return `widget_${cleaned}`;
+  return cleaned;
 }
 const GLEAM_KEYWORDS = new Set([
   "as", "assert", "auto", "case", "const", "delegate", "derive", "echo",
@@ -146,8 +156,25 @@ const GLEAM_KEYWORDS = new Set([
   "panic", "pub", "return", "test", "todo", "type", "use",
 ]);
 function toGleamVar(key) {
-  const snake = toSnakeCase(key);
+  const sanitized = toSnakeCase(key)
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const snake = sanitized === ""
+    ? "prop"
+    : /^[0-9]/.test(sanitized) ? `prop_${sanitized}` : sanitized;
   return GLEAM_KEYWORDS.has(snake) ? snake + "_" : snake;
+}
+function makeUniqueIdentifier(candidate, used) {
+  if (!used.has(candidate)) {
+    used.add(candidate);
+    return candidate;
+  }
+  let counter = 2;
+  while (used.has(`${candidate}_${counter}`)) counter++;
+  const unique = `${candidate}_${counter}`;
+  used.add(unique);
+  return unique;
 }
 function formatGeneratedGleamFile(filePath) {
   const result = spawnSync("gleam", ["format", filePath], {
@@ -164,13 +191,16 @@ function formatGeneratedGleamFile(filePath) {
     );
   }
 }
-function generateWidgetGleamFile(widgetName, widgetXml) {
+function generateWidgetGleamFile(widgetName, widgetXml, usedModuleNames) {
   const props = parseProperties(widgetXml);
   if (props.length === 0) return;
   const requiredProps = props.filter((p) => p.required);
   const optionalProps = props.filter((p) => !p.required);
   const hasOptional = optionalProps.length > 0;
-  const moduleFileName = toModuleFileName(widgetName);
+  const moduleFileName = makeUniqueIdentifier(
+    toModuleFileName(widgetName),
+    usedModuleNames,
+  );
   const filePath = `src/widgets/${moduleFileName}.gleam`;
   if (!existsSync("src/widgets")) {
     mkdirSync("src/widgets", { recursive: true });
@@ -261,8 +291,16 @@ function readClassicFromCache(cacheDir) {
   walk(cacheDir);
   return classifyClassicFiles(fileEntries);
 }
-function generateClassicGleamFile(widgetName, widgetId, properties) {
-  const moduleFileName = toModuleFileName(widgetName);
+function generateClassicGleamFile(
+  widgetName,
+  widgetId,
+  properties,
+  usedModuleNames,
+) {
+  const moduleFileName = makeUniqueIdentifier(
+    toModuleFileName(widgetName),
+    usedModuleNames,
+  );
   const filePath = `src/widgets/${moduleFileName}.gleam`;
   if (!existsSync("src/widgets")) {
     mkdirSync("src/widgets", { recursive: true });
@@ -540,7 +578,9 @@ function generateWidgetBindingsOrThrow() {
   const widgets = []; // pluggable: { name, safeId, mjsContent, cssContent }
   const classicWidgets = []; // classic: { name, safeId, widgetId, jsFiles, templateFiles, css, libFiles }
   const processedNames = new Set();
-  const cacheDirs = readdirSync("build/widgets");
+  const usedIdentifiers = new Set();
+  const usedModuleNames = new Set();
+  const cacheDirs = readdirSync("build/widgets").sort();
   for (const dirName of cacheDirs) {
       const cacheDir = `build/widgets/${dirName}`;
       if (!statSync(cacheDir).isDirectory()) continue;
@@ -560,10 +600,18 @@ function generateWidgetBindingsOrThrow() {
           const idMatch = widgetXml.match(/widget\s+[^>]*id="([^"]+)"/);
           if (!idMatch) continue;
           const properties = parseProperties(widgetXml);
-          generateClassicGleamFile(widgetName, idMatch[1], properties);
+          generateClassicGleamFile(
+            widgetName,
+            idMatch[1],
+            properties,
+            usedModuleNames,
+          );
           classicWidgets.push({
             name: widgetName,
-            safeId: toSafeIdentifier(widgetName),
+            safeId: makeUniqueIdentifier(
+              toSafeIdentifier(widgetName),
+              usedIdentifiers,
+            ),
             widgetId: idMatch[1],
             jsFiles, templateFiles, css, libFiles,
           });
@@ -604,8 +652,11 @@ function generateWidgetBindingsOrThrow() {
         const cssFile = files.find(f => f.replace(/\.css$/, "") === cssBase && !f.includes("editorPreview"))
           || files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
         const cssContent = cssFile ? readFileSync(`${cacheDir}/${cssFile}`) : null;
-        generateWidgetGleamFile(widgetName, widgetXml);
-        const safeId = toSafeIdentifier(widgetName);
+        generateWidgetGleamFile(widgetName, widgetXml, usedModuleNames);
+        const safeId = makeUniqueIdentifier(
+          toSafeIdentifier(widgetName),
+          usedIdentifiers,
+        );
         widgets.push({ name: widgetName, safeId, mjsContent, cssContent, sharedFiles });
         processedNames.add(widgetName);
       }
@@ -614,7 +665,10 @@ function generateWidgetBindingsOrThrow() {
         const mjsContent = readFileSync(`${cacheDir}/${mjsFile}`);
         const cssFile = files.find(f => f.endsWith(".css") && !f.includes("editorPreview"));
         const cssContent = cssFile ? readFileSync(`${cacheDir}/${cssFile}`) : null;
-        const safeId = toSafeIdentifier(dirName);
+        const safeId = makeUniqueIdentifier(
+          toSafeIdentifier(dirName),
+          usedIdentifiers,
+        );
         if (!processedNames.has(dirName)) {
           widgets.push({ name: dirName, safeId, mjsContent, cssContent });
           processedNames.add(dirName);

@@ -14,9 +14,18 @@ pub fn pluggable_assets_generate_bindings_test() -> Nil {
   |> should.be_true
 }
 
+/// Verifies hostile widget and property names generate valid bindings.
+pub fn hostile_widget_names_generate_bindings_test() -> Nil {
+  hostile_widget_names_generate_valid_bindings()
+  |> should.be_true
+}
+
 // -- FFI --
 @external(javascript, "./mendraw_generator_test_ffi.mjs", "empty_assets_remove_stale_bindings")
 fn empty_assets_remove_stale_bindings() -> Bool
 
 @external(javascript, "./mendraw_generator_test_ffi.mjs", "pluggable_assets_generate_bindings")
 fn pluggable_assets_generate_bindings() -> Bool
+
+@external(javascript, "./mendraw_generator_test_ffi.mjs", "hostile_widget_names_generate_valid_bindings")
+fn hostile_widget_names_generate_valid_bindings() -> Bool
