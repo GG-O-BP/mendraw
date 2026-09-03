@@ -7,6 +7,13 @@ function buildIdIndex(items) {
   items.forEach((item, i) => map.set(item.id, i));
   return map;
 }
+function assertAlignedLengths(kind, items, values) {
+  if (items.length !== values.length) {
+    throw new Error(
+      `synthetic.${kind} requires one value per item: received ${items.length} item(s) and ${values.length} value(s)`,
+    );
+  }
+}
 // noop for mutation methods
 const noop = () => {};
 // Wrap a JS number in a Big.js-like object.
@@ -85,6 +92,7 @@ export function make_list_value(gleamItems) {
 export function make_list_attribute(gleamItems, gleamValues, displayFn, attrType) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
+  assertAlignedLengths("list_attribute", items, values);
   const idIndex = buildIdIndex(items);
   const formatFn = (v) => {
     if (v === undefined || v === null) return "";
@@ -137,6 +145,7 @@ export function make_text_template(value) {
 export function make_list_text_template(gleamItems, gleamValues) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
+  assertAlignedLengths("list_text_template", items, values);
   const idIndex = buildIdIndex(items);
   return {
     get: (item) => {
@@ -151,6 +160,7 @@ export function make_list_text_template(gleamItems, gleamValues) {
 export function make_list_expression(gleamItems, gleamValues) {
   const items = gleamItems.toArray();
   const values = gleamValues.toArray();
+  assertAlignedLengths("list_expression", items, values);
   const idIndex = buildIdIndex(items);
   return {
     get: (item) => {
@@ -166,6 +176,7 @@ export function make_list_expression(gleamItems, gleamValues) {
 export function make_association(gleamItems, gleamTargets) {
   const items = gleamItems.toArray();
   const targets = gleamTargets.toArray();
+  assertAlignedLengths("association", items, targets);
   const idIndex = buildIdIndex(items);
   return {
     get: (item) => {

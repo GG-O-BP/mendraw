@@ -5,6 +5,10 @@
 //// allowing external API data (e.g. CoinGecko) to be rendered
 //// through real Mendix marketplace widgets.
 ////
+//// Synthetic constructors validate that parallel value lists contain exactly
+//// one value per object item and fail immediately with a descriptive error
+//// when the lengths differ.
+////
 //// ```gleam
 //// let items = synthetic.object_items(3)
 //// let lv = synthetic.list_value(items)
