@@ -131,9 +131,6 @@ import mendraw/mendix/action
 import mendraw/mendix/editable_value
 import mendraw/mendix/list_value
 
-import mendraw/mendix/list_value
-import mendraw/datasource
-
 let status = list_value.status(data_source)
 let display = editable_value.display_value(attribute)
 editable_value.set_text_value(attribute, "Updated")
@@ -143,6 +140,7 @@ case mendix.get_prop(props, "optionalValue") {
   option.Some(value) -> value
   option.None -> fallback_value
 }
+```
 
 Datasource-bound properties can be captured as one typed snapshot instead of
 probing runtime shapes:
@@ -156,7 +154,28 @@ case datasource.capture(props, "dataSource") {
   datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
 }
 ```
+
+Editable list-bound values can be read, parsed, compared, and written back
+without local `instanceof` probes:
+
+```gleam
+import gleam/option
+import mendraw/datasource
+import mendraw/value_adapter
+
+let editable = datasource.attribute_value(column_attribute, item)
+
+case value_adapter.attribute_snapshot(column_attribute, item) {
+  Ok(snapshot) ->
+    case value_adapter.parse(snapshot.kind, edited_text) {
+      Ok(option.Some(next)) -> value_adapter.write(editable, option.Some(next))
+      Ok(option.None) -> value_adapter.write(editable, option.None)
+      Error(error) -> show_conversion_error(error)
+    }
+  Error(error) -> show_adapter_error(error)
+}
 ```
+
 
 Important modules include:
 
@@ -166,6 +185,7 @@ Important modules include:
 | `mendraw/mendix/editable_value` | Editable values and validation |
 | `mendraw/mendix/list_value` | Data-source paging, filtering, sorting, and reload |
 | `mendraw/datasource` | Typed snapshots of datasource states, object lists, and item attributes |
+| `mendraw/value_adapter` | Typed read, parse, compare, and write adapters for list-bound editable values |
 | `mendraw/mendix/list_attribute` | Per-item attribute/action/expression access |
 | `mendraw/mendix/filter` | Typed filter expression construction |
 | `mendraw/mendix/date` | JavaScript date boundary |
