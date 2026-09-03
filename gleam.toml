@@ -1,5 +1,5 @@
 name = "mendraw"
-version = "2.0.0"
+version = "2.1.0"
 gleam = ">= 1.17.0"
 target = "javascript"
 description = "Typed Mendix client values and bindings for installed MPK widget assets"
