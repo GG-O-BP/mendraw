@@ -9,7 +9,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Ok } from "./gleam.mjs";
-import { generate_widget_bindings } from "./mendraw/cmd_ffi.mjs";
+import {
+  generate_widget_bindings,
+  parse_meta_toml,
+} from "./mendraw/cmd_ffi.mjs";
 
 function inTemporaryProject(run) {
   const previousDirectory = process.cwd();
@@ -151,5 +154,22 @@ export function classic_meta_with_comments_generate_bindings() {
       && source.includes('classic.render("Classic.widget.CommentGrid"')
       && runtime.includes('"CommentGrid": {')
       && runtime.includes('widgetId: "Classic.widget.CommentGrid"');
+  });
+}
+
+export function meta_toml_escape_decoding_contract() {
+  return inTemporaryProject(() => {
+    writeFileSync(
+      "meta.toml",
+      'version = "1.0\\"0\\n"\n'
+        + "label = 'literal\\value'\n"
+        + "emoji = \"\\u00e9\"\n"
+        + "flag = true\n",
+    );
+    const meta = parse_meta_toml("meta.toml");
+    return meta.version === "1.0\"0\n"
+      && meta.label === "literal\\value"
+      && meta.emoji === "é"
+      && meta.flag === true;
   });
 }

@@ -23,12 +23,42 @@ export function file_exists(path) {
 }
 
 function parseTomlValue(raw) {
-  if (raw.startsWith('"') && raw.endsWith('"')) return raw.slice(1, -1);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+    return decodeTomlEscapes(raw.slice(1, -1));
+  }
+  if (raw.length >= 2 && raw.startsWith("'") && raw.endsWith("'")) {
+    return raw.slice(1, -1);
+  }
   const number = Number.parseInt(raw, 10);
   if (!Number.isNaN(number) && String(number) === raw) return number;
   if (raw === "true") return true;
   if (raw === "false") return false;
   return raw;
+}
+
+function decodeTomlEscapes(value) {
+  return value.replace(
+    /\\(u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|b|t|n|f|r|"|\\)/g,
+    (match, escape) => {
+      switch (escape[0]) {
+        case "b": return "\b";
+        case "t": return "\t";
+        case "n": return "\n";
+        case "f": return "\f";
+        case "r": return "\r";
+        case '"': return "\"";
+        case "\\": return "\\";
+        case "u":
+        case "U":
+          return String.fromCodePoint(parseInt(escape.slice(1), 16));
+        default: return match;
+      }
+    },
+  );
+}
+
+export function parse_meta_toml(path) {
+  return parseMetaToml(path);
 }
 
 function parseMetaToml(path) {
