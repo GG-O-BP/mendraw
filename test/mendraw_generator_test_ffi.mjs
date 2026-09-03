@@ -117,3 +117,39 @@ export function hostile_widget_names_generate_valid_bindings() {
       && runtime.includes('"A B": AB_2');
   });
 }
+
+export function classic_meta_with_comments_generate_bindings() {
+  return inTemporaryProject(() => {
+    mkdirSync("build/widgets/CommentGrid", { recursive: true });
+    writeFileSync(
+      "build/widgets/CommentGrid/meta.toml",
+      'version = "1.0.0" # pinned by the installer\n'
+        + "classic = true # legacy widget package\n"
+        + 'label = "Keep # inside strings"\n',
+    );
+    writeFileSync(
+      "build/widgets/CommentGrid/CommentGrid.xml",
+      '<widget id="Classic.widget.CommentGrid">'
+        + "<name>Comment Grid</name>"
+        + '<properties><property key="title" required="true" /></properties>'
+        + "</widget>",
+    );
+    writeFileSync(
+      "build/widgets/CommentGrid/CommentGrid.js",
+      "define([\"dojo/_base/declare\"], function(declare) { return declare(null, {}); });\n",
+    );
+    const result = generate_widget_bindings();
+    const source = readFileSync(
+      "src/widgets/comment_grid.gleam",
+      "utf-8",
+    );
+    const runtime = readFileSync(
+      "build/dev/javascript/mendraw/mendraw/classic_ffi.mjs",
+      "utf-8",
+    );
+    return result instanceof Ok
+      && source.includes('classic.render("Classic.widget.CommentGrid"')
+      && runtime.includes('"CommentGrid": {')
+      && runtime.includes('widgetId: "Classic.widget.CommentGrid"');
+  });
+}

@@ -36,9 +36,29 @@ function parseMetaToml(path) {
   const result = {};
   for (const line of content.split(/\r?\n/)) {
     const match = line.match(/^(\w+)\s*=\s*(.+)$/);
-    if (match) result[match[1]] = parseTomlValue(match[2].trim());
+    if (match) result[match[1]] = parseTomlValue(stripInlineComment(match[2]));
   }
   return result;
+}
+
+function stripInlineComment(value) {
+  let inDoubleQuoted = false;
+  let inLiteral = false;
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    if (char === "\\" && inDoubleQuoted) {
+      i++;
+      continue;
+    }
+    if (char === '"' && !inLiteral) {
+      inDoubleQuoted = !inDoubleQuoted;
+    } else if (char === "'" && !inDoubleQuoted) {
+      inLiteral = !inLiteral;
+    } else if (char === "#" && !inDoubleQuoted && !inLiteral) {
+      return value.slice(0, i).trim();
+    }
+  }
+  return value.trim();
 }
 
 function resetGeneratedGleamBindings() {
