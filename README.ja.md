@@ -110,6 +110,7 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/mendix/editable_value` | 編集可能値と validation |
 | `mendraw/mendix/list_value` | data source の paging/filter/sort/reload |
 | `mendraw/datasource` | データソース状態・オブジェクト一覧・項目属性の型付きスナップショット |
+| `mendraw/value_adapter` | リスト束縛編集値の型付き読取・パース・比較・書き込みアダプター |
 | `mendraw/mendix/list_attribute` | item 別 attribute/action/expression |
 | `mendraw/mendix/filter` | 型付きフィルター式 |
 | `mendraw/mendix/date` | JavaScript Date 境界 |
@@ -128,6 +129,27 @@ case datasource.capture(props, "dataSource") {
   datasource.Available(_, data) -> render_rows(data.items)
   datasource.Loading(_) -> render_loading()
   datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
+}
+```
+
+リストに束縛された編集可能値は、ローカルな `instanceof` 検査なしで読み取り、
+パースし、比較し、書き戻せます:
+
+```gleam
+import gleam/option
+import mendraw/datasource
+import mendraw/value_adapter
+
+let editable = datasource.attribute_value(column_attribute, item)
+
+case value_adapter.attribute_snapshot(column_attribute, item) {
+  Ok(snapshot) ->
+    case value_adapter.parse(snapshot.kind, edited_text) {
+      Ok(option.Some(next)) -> value_adapter.write(editable, option.Some(next))
+      Ok(option.None) -> value_adapter.write(editable, option.None)
+      Error(error) -> show_conversion_error(error)
+    }
+  Error(error) -> show_adapter_error(error)
 }
 ```
 

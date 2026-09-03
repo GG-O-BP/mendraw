@@ -109,6 +109,8 @@ classic.render("CameraWidget.widget.CameraWidget", [
 | `mendraw/mendix` | 핵심 handle, 상태, prop 접근, Option 변환 |
 | `mendraw/mendix/editable_value` | 편집 값과 validation |
 | `mendraw/mendix/list_value` | data source paging/filter/sort/reload |
+| `mendraw/datasource` | 데이터소스 상태·객체 목록·항목 속성의 typed 스냅샷 |
+| `mendraw/value_adapter` | 목록 바인딩 편집 값의 typed 읽기·파싱·비교·쓰기 어댑터 |
 | `mendraw/mendix/list_attribute` | item별 attribute/action/expression 접근 |
 | `mendraw/mendix/filter` | 타입 안전 필터 표현식 |
 | `mendraw/mendix/date` | JavaScript Date 경계 |
@@ -127,6 +129,27 @@ case datasource.capture(props, "dataSource") {
   datasource.Available(_, data) -> render_rows(data.items)
   datasource.Loading(_) -> render_loading()
   datasource.PropertyAbsent(_) | datasource.Unavailable(_) -> render_empty()
+}
+```
+
+목록에 바인딩된 편집 값은 로컬 `instanceof` 검사 없이 읽고, 파싱하고, 비교하고,
+다시 쓸 수 있습니다:
+
+```gleam
+import gleam/option
+import mendraw/datasource
+import mendraw/value_adapter
+
+let editable = datasource.attribute_value(column_attribute, item)
+
+case value_adapter.attribute_snapshot(column_attribute, item) {
+  Ok(snapshot) ->
+    case value_adapter.parse(snapshot.kind, edited_text) {
+      Ok(option.Some(next)) -> value_adapter.write(editable, option.Some(next))
+      Ok(option.None) -> value_adapter.write(editable, option.None)
+      Error(error) -> show_conversion_error(error)
+    }
+  Error(error) -> show_adapter_error(error)
 }
 ```
 

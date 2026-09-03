@@ -279,3 +279,158 @@ export function object_entry_field_string(entry, field) {
   const value = entry[field];
   return to_option(typeof value === "string" ? value : undefined);
 }
+
+// -- Value adapter --
+const DECIMAL_TEXT_PATTERN = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
+const ISO_DATE_TIME_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+export function classify_editable_value(raw) {
+  if (raw === undefined || raw === null) return "empty";
+  if (typeof raw === "boolean") return "boolean";
+  if (raw instanceof Date) return "date";
+  if (typeof raw === "number") {
+    return Number.isInteger(raw) ? "integer" : "float";
+  }
+  if (typeof raw === "string") return "string";
+  if (
+    typeof raw === "object" &&
+    typeof raw.toNumber === "function" &&
+    typeof raw.toString === "function"
+  ) {
+    return "decimal";
+  }
+  return "unsupported";
+}
+export function editable_value_boolean(raw) {
+  return raw;
+}
+export function editable_value_date(raw) {
+  return raw;
+}
+export function editable_value_integer(raw) {
+  return raw;
+}
+export function editable_value_float(raw) {
+  return raw;
+}
+export function editable_value_decimal(raw) {
+  return raw;
+}
+export function editable_value_string(raw) {
+  return raw;
+}
+function decimalLikeNumber(value) {
+  if (typeof value === "number") return value;
+  if (typeof value?.toNumber === "function") return value.toNumber();
+  const parsed = Number(value?.toString?.() ?? String(value));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+function makeDecimalLike(text) {
+  const numeric = Number(text);
+  const fromNumber = (number) =>
+    Number.isFinite(number) ? makeDecimalLike(String(number)) : undefined;
+  const withOther = (operation, other) => {
+    const right = decimalLikeNumber(other);
+    return right === undefined ? undefined : fromNumber(operation(numeric, right));
+  };
+  const decimal = {
+    toString: () => text,
+    toNumber: () => numeric,
+    valueOf: () => numeric,
+    toFixed: (dp) => numeric.toFixed(dp),
+    eq: (other) => {
+      const right = decimalLikeNumber(other);
+      return right !== undefined && numeric === right;
+    },
+    gt: (other) => withOther((l, r) => l > r, other) ?? false,
+    lt: (other) => withOther((l, r) => l < r, other) ?? false,
+    gte: (other) => withOther((l, r) => l >= r, other) ?? false,
+    lte: (other) => withOther((l, r) => l <= r, other) ?? false,
+    cmp: (other) => withOther((l, r) => (l > r ? 1 : l < r ? -1 : 0), other) ?? 0,
+    plus: (other) => withOther((l, r) => l + r, other) ?? decimal,
+    minus: (other) => withOther((l, r) => l - r, other) ?? decimal,
+    times: (other) => withOther((l, r) => l * r, other) ?? decimal,
+    div: (other) => withOther((l, r) => l / r, other) ?? decimal,
+    abs: () => fromNumber(Math.abs(numeric)) ?? decimal,
+    round: () => fromNumber(Math.round(numeric)) ?? decimal,
+  };
+  return decimal;
+}
+export function make_decimal_from_text(text) {
+  if (!DECIMAL_TEXT_PATTERN.test(text)) return new None();
+  const numeric = Number(text);
+  if (!Number.isFinite(numeric)) return new None();
+  return new Some(makeDecimalLike(text));
+}
+export function parse_date_text(text) {
+  const match = ISO_DATE_TIME_PATTERN.exec(text);
+  if (!match) return new None();
+  const [
+    ,
+    year,
+    month,
+    day,
+    hours = "00",
+    minutes = "00",
+    seconds = "00",
+    fraction,
+    zone,
+  ] = match;
+  if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) {
+    return new None();
+  }
+  const milliseconds = Number(fraction ?? "0".padEnd(3, "0"));
+  let date = new Date(
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hours),
+      Number(minutes),
+      Number(seconds),
+      milliseconds,
+    ),
+  );
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    return new None();
+  }
+  if (zone && zone !== "Z") {
+    const sign = zone[0] === "-" ? -1 : 1;
+    const zoneHours = Number(zone.slice(1, 3));
+    const zoneMinutes = Number(zone.slice(-2));
+    if (zoneHours > 23 || zoneMinutes > 59) return new None();
+    date = new Date(date.getTime() - sign * (zoneHours * 60 + zoneMinutes) * 60000);
+  }
+  return new Some(date);
+}
+export function decimal_value_to_string(value) {
+  return value.toString();
+}
+export function decimal_value_to_float(value) {
+  const number = decimalLikeNumber(value);
+  return to_option(number !== undefined && Number.isFinite(number) ? number : undefined);
+}
+export function decimal_values_equal(left, right) {
+  if (typeof left?.eq === "function") {
+    return left.eq(right) === true;
+  }
+  const left_number = decimalLikeNumber(left);
+  const right_number = decimalLikeNumber(right);
+  return (
+    left_number !== undefined &&
+    right_number !== undefined &&
+    left_number === right_number
+  );
+}
+export function editable_set_value_checked(ev, option) {
+  try {
+    ev.setValue(from_option(option));
+    return new Ok(undefined);
+  } catch (error) {
+    return new GleamError(error instanceof Error ? error.message : String(error));
+  }
+}
