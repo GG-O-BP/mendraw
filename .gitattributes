@@ -1,0 +1,26 @@
+# Normalize text files to LF in the repository and on checkout.
+* text=auto
+
+# Gleam/JavaScript sources, manifests, docs, and CI files must stay LF so the
+# formatter, generator diffs, and cross-platform TOML writes stay deterministic.
+*.gleam text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# Binary assets must never be normalized.
+*.mpk binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
